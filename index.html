@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1420">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<title>Gas</title>
+<style>
+:root{--bg:#0f1420;--card:#182033;--card2:#1f2940;--tx:#f2f5fb;--mu:#8e9bb5;--ac:#ff9a3c;--ac2:#ff5e62;--ok:#4ade80;--ln:#26314a;
+--sat:env(safe-area-inset-top,0px);--sab:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:var(--bg);color:var(--tx);font-family:-apple-system,"Segoe UI",Roboto,sans-serif;overflow:hidden}
+#app{height:100dvh;display:flex;flex-direction:column;padding-top:var(--sat)}
+header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px 8px}
+header h1{font-size:22px;font-weight:700;letter-spacing:-.3px}
+header h1 span{background:linear-gradient(90deg,var(--ac),var(--ac2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.ib{background:var(--card);border:1px solid var(--ln);color:var(--mu);width:40px;height:40px;border-radius:12px;display:grid;place-items:center}
+main{flex:1;overflow-y:auto;padding:8px 16px 20px}
+.tab{display:none;animation:f .25s}.tab.on{display:block}
+@keyframes f{from{opacity:0;transform:translateY(6px)}to{opacity:1}}
+.card{background:var(--card);border:1px solid var(--ln);border-radius:20px;padding:18px;margin-bottom:14px}
+.hero{background:linear-gradient(135deg,#ff9a3c,#ff5e62);border:0;color:#fff}
+.lbl{font-size:12px;text-transform:uppercase;letter-spacing:.8px;color:var(--mu);font-weight:600}
+.hero .lbl{color:rgba(255,255,255,.8)}
+.big{font-size:40px;font-weight:800;letter-spacing:-1px;margin:4px 0}
+.mid{font-size:28px;font-weight:700;margin:4px 0}
+.sub{font-size:13px;color:var(--mu)}.hero .sub{color:rgba(255,255,255,.85)}
+.bar{height:8px;background:rgba(255,255,255,.25);border-radius:9px;margin:14px 0 6px;overflow:hidden}
+.bar i{display:block;height:100%;background:#fff;border-radius:9px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.st{background:var(--card2);border-radius:16px;padding:14px}
+.st b{display:block;font-size:20px;margin-top:4px}
+.three{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.act{background:var(--card);border:1px solid var(--ln);color:var(--tx);border-radius:18px;padding:16px 6px;display:flex;flex-direction:column;align-items:center;gap:8px;font-size:13px;font-weight:600}
+.act svg{color:var(--ac)}
+.act:active,.btn:active{transform:scale(.97)}
+.btn{width:100%;border:0;border-radius:16px;padding:15px;font-size:16px;font-weight:700;color:#fff;background:linear-gradient(90deg,var(--ac),var(--ac2));display:flex;align-items:center;justify-content:center;gap:10px}
+.btn.g{background:var(--card2);color:var(--tx)}
+.row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--ln)}
+.row:last-child{border:0}
+.row b{font-size:17px}.row small{display:block;color:var(--mu);font-size:12px;margin-top:2px}
+.x{background:none;border:0;color:var(--mu);font-size:22px;padding:4px 8px}
+.chart{width:100%;height:auto;display:block;margin-top:10px}
+.empty{text-align:center;color:var(--mu);padding:24px 10px;font-size:14px;line-height:1.5}
+h2{font-size:17px;margin:4px 2px 12px}
+label{display:block;font-size:12px;color:var(--mu);margin:12px 0 5px;font-weight:600}
+input{width:100%;background:var(--card2);border:1px solid var(--ln);color:var(--tx);border-radius:12px;padding:12px;font-size:16px;font-family:inherit}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+nav{display:flex;background:var(--card);border-top:1px solid var(--ln);padding:8px 8px calc(8px + var(--sab))}
+nav button{flex:1;background:none;border:0;color:var(--mu);display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:6px}
+nav button.on{color:var(--ac)}
+.ov{position:fixed;inset:0;background:rgba(5,8,15,.7);display:none;align-items:flex-end;z-index:9}
+.ov.on{display:flex}
+.sheet{background:var(--card);width:100%;border-radius:24px 24px 0 0;padding:22px 20px calc(22px + var(--sab));max-height:90dvh;overflow-y:auto}
+.sheet h3{margin-bottom:4px;font-size:19px}
+.load{position:fixed;inset:0;background:rgba(5,8,15,.85);display:none;flex-direction:column;gap:16px;align-items:center;justify-content:center;z-index:12;color:var(--mu)}
+.load.on{display:flex}
+.sp{width:44px;height:44px;border:4px solid var(--ln);border-top-color:var(--ac);border-radius:50%;animation:r .8s linear infinite}
+@keyframes r{to{transform:rotate(360deg)}}
+#toast{position:fixed;left:50%;bottom:calc(90px + var(--sab));transform:translateX(-50%);background:#fff;color:#111;padding:11px 18px;border-radius:14px;font-size:14px;font-weight:600;opacity:0;pointer-events:none;transition:.3s;z-index:20;max-width:88%;text-align:center}
+#toast.on{opacity:1}
+</style>
+</head>
+<body>
+<div id="app">
+<header><h1>Gas <span>Hogar</span></h1>
+<button class="ib" onclick="op('sKey')" aria-label="Ajustes"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg></button></header>
+<main>
+<section class="tab on" id="t0"><div id="t0a"></div><div id="tmp"></div></section>
+<section class="tab" id="t1">
+ <div class="three">
+  <button class="act" onclick="$('#fCam').click()"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>Hacer foto</button>
+  <button class="act" onclick="$('#fGal').click()"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>Galería</button>
+  <button class="act" onclick="openR()"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>A mano</button>
+ </div>
+ <h2>Lecturas</h2><div class="card" id="list"></div>
+</section>
+<section class="tab" id="t2">
+ <button class="btn" onclick="$('#fBill').click()"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>Subir factura</button>
+ <p class="sub" style="margin:10px 4px 16px;text-align:center">Foto o PDF. La app lee los costes de tu contrato.</p>
+ <div class="card">
+  <div class="two"><div><label>Inicio periodo</label><input type="date" id="p_ini"></div><div><label>Fin periodo</label><input type="date" id="p_fin"></div></div>
+  <div class="two"><div><label>Precio variable (€/kWh)</label><input id="p_pvar" inputmode="decimal"></div><div><label>Término fijo (€/mes)</label><input id="p_fijo" inputmode="decimal"></div></div>
+  <div class="two"><div><label>Alquiler contador (€/mes)</label><input id="p_alq" inputmode="decimal"></div><div><label>Imp. hidrocarburos (€/kWh)</label><input id="p_imp" inputmode="decimal"></div></div>
+  <div class="two"><div><label>IVA (%)</label><input id="p_iva" inputmode="decimal"></div><div><label>Factor (kWh por m³)</label><input id="p_factor" inputmode="decimal"></div></div>
+  <button class="btn" style="margin-top:18px" onclick="saveP()">Guardar datos</button>
+ </div>
+</section>
+</main>
+<nav>
+ <button class="on" data-t="0"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg>Resumen</button>
+ <button data-t="1"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 12l4-4M12 7v1M7 12h1M17 12h-1"/></svg>Contador</button>
+ <button data-t="2"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8zM14 2v6h6M8 13h8M8 17h8"/></svg>Factura</button>
+</nav>
+</div>
+
+<input type="file" id="fCam" accept="image/*" capture="environment" hidden>
+<input type="file" id="fGal" accept="image/*" hidden>
+<input type="file" id="fBill" accept="image/*,application/pdf" hidden>
+
+<div class="ov" id="sR" onclick="if(event.target===this)cl('sR')"><div class="sheet">
+ <h3>Lectura del contador</h3><p class="sub" id="rNote">Revisa el dato antes de guardar.</p>
+ <label>Lectura (m³)</label><input id="r_m3" inputmode="decimal" placeholder="Ej. 1234.567">
+ <label>Fecha</label><input type="date" id="r_date">
+ <div class="two" style="margin-top:20px"><button class="btn g" onclick="cl('sR')">Cancelar</button><button class="btn" onclick="saveR()">Guardar</button></div>
+</div></div>
+
+<div class="ov" id="sKey" onclick="if(event.target===this)cl('sKey')"><div class="sheet">
+ <h3>Ajustes</h3><p class="sub">Todo se guarda solo en este móvil.</p>
+ <label>Ciudad (para la temperatura)</label><input id="c_in" placeholder="Ej. Valencia">
+ <label>Clave API de Google AI Studio (Gemini)</label><input id="k_in" type="password" placeholder="AIza...">
+ <div class="two" style="margin-top:20px"><button class="btn g" onclick="cl('sKey')">Cerrar</button><button class="btn" onclick="saveSet()">Guardar</button></div>
+</div></div>
+
+<div class="load" id="load"><div class="sp"></div><div id="loadT">Leyendo…</div></div>
+<div id="toast"></div>
+
+<script>
+const $=s=>document.querySelector(s);
+const st={get(k,d){try{const v=JSON.parse(localStorage.getItem(k));return v==null?d:v}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
+const iso=d=>{const o=new Date(d);return o.getFullYear()+'-'+String(o.getMonth()+1).padStart(2,'0')+'-'+String(o.getDate()).padStart(2,'0')};
+const D=s=>new Date(s+'T12:00');
+const diff=(a,b)=>Math.round((D(b)-D(a))/864e5);
+const eur=n=>n.toLocaleString('es-ES',{style:'currency',currency:'EUR'});
+const nf=(n,d=1)=>n.toLocaleString('es-ES',{maximumFractionDigits:d});
+const now=new Date();
+const DEF={ini:iso(new Date(now.getFullYear(),now.getMonth(),1)),fin:iso(new Date(now.getFullYear(),now.getMonth()+1,0)),pvar:0.05,fijo:4.5,alq:1,imp:0.00234,iva:21,factor:11.7};
+let R=st.get('gas_r',[]),P=Object.assign({},DEF,st.get('gas_p',{})),KEY=st.get('gas_k',''),G=st.get('gas_geo',{});
+const MODEL='gemini-2.5-flash';
+
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2800)}
+function op(id){if(id==='sKey'){$('#k_in').value=KEY;$('#c_in').value=G.name||''}$('#'+id).classList.add('on')}
+function cl(id){$('#'+id).classList.remove('on')}
+function busy(t){$('#loadT').textContent=t||'';$('#load').classList.toggle('on',!!t)}
+
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
+ document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x===b));
+ document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('on',i==b.dataset.t));
+ if(b.dataset.t==2)fillP();
+});
+
+function period(){
+ let s=D(P.ini),e=D(P.fin);const today=D(iso(new Date()));
+ let n=0;while(today>e&&n<240){s.setMonth(s.getMonth()+1);e.setMonth(e.getMonth()+1);n++}
+ return{s:iso(s),e:iso(e)};
+}
+const cost=(m3,days)=>((m3*P.factor*(P.pvar+P.imp))+(P.fijo+P.alq)*days/30.4375)*(1+P.iva/100);
+
+function calc(){
+ const A=[...R].sort((a,b)=>a.date.localeCompare(b.date));
+ if(A.length<2)return null;
+ const per=period(),today=iso(new Date()),last=A[A.length-1];
+ const before=A.filter(r=>r.date<=per.s).pop();
+ const base=before||A.find(r=>r.date>=per.s)||A[0];
+ const days=diff(base.date,last.date);
+ if(days<=0||base===last)return null;
+ const rate=Math.max(0,(last.m3-base.m3)/days);
+ const soFar=base.date<per.s?rate*Math.max(0,diff(per.s,last.date)):last.m3-base.m3;
+ const total=diff(per.s,per.e)+1;
+ const el=Math.min(total,Math.max(1,diff(per.s,today)+1));
+ return{per,rate,soFar,total,el,now:cost(soFar,el),proj:cost(rate*total,total),kwh:soFar*P.factor,left:Math.max(0,total-el)};
+}
+
+function render(){
+ const c=calc();
+ $('#t0a').innerHTML=c?`
+ <div class="card hero"><div class="lbl">Factura hasta hoy</div><div class="big">${eur(c.now)}</div>
+ <div class="bar"><i style="width:${Math.round(c.el/c.total*100)}%"></i></div>
+ <div class="sub">Día ${c.el} de ${c.total} · quedan ${c.left} días</div></div>
+ <div class="card"><div class="lbl">Estimación a fin de periodo</div><div class="mid">${eur(c.proj)}</div>
+ <div class="sub">Si mantienes el ritmo actual</div></div>
+ <div class="grid"><div class="st"><div class="lbl">Consumo</div><b>${nf(c.soFar,2)} m³</b><div class="sub">${nf(c.kwh,0)} kWh</div></div>
+ <div class="st"><div class="lbl">Ritmo diario</div><b>${nf(c.rate,2)} m³</b><div class="sub">${eur(c.rate*P.factor*(P.pvar+P.imp)*(1+P.iva/100))} / día</div></div></div>
+ <p class="sub" style="text-align:center;margin-top:16px">Periodo: ${c.per.s.split('-').reverse().join('/')} – ${c.per.e.split('-').reverse().join('/')}</p>`
+ :`<div class="card empty">Añade al menos <b>dos lecturas</b> del contador en la pestaña Contador para ver tu consumo y la estimación.<br><br>${R.length?'Llevas 1 lectura.':'Todavía no hay lecturas.'}</div>`;
+ const A=[...R].sort((a,b)=>b.date.localeCompare(a.date));
+ $('#list').innerHTML=A.length?A.map(r=>`<div class="row"><div><b>${nf(r.m3,3)} m³</b><small>${r.date.split('-').reverse().join('/')}</small></div><button class="x" onclick="del('${r.id}')">✕</button></div>`).join(''):'<div class="empty">Sin lecturas todavía</div>';
+ renderTemp();
+}
+function del(id){if(confirm('¿Borrar esta lectura?')){R=R.filter(r=>r.id!==id);st.set('gas_r',R);render()}}
+
+function openR(m3,date,note){
+ $('#r_m3').value=m3??'';$('#r_date').value=date||iso(new Date());
+ $('#rNote').textContent=note||'Introduce el dato del contador.';op('sR');
+}
+function saveR(){
+ const m3=parseFloat($('#r_m3').value.replace(',','.')),date=$('#r_date').value;
+ if(!isFinite(m3)||!date){toast('Revisa lectura y fecha');return}
+ const prev=[...R].filter(r=>r.date<=date).sort((a,b)=>a.date.localeCompare(b.date)).pop();
+ if(prev&&m3<prev.m3&&!confirm('Es menor que la lectura anterior ('+nf(prev.m3,3)+'). ¿Guardar igualmente?'))return;
+ R=R.filter(r=>r.date!==date);R.push({id:String(Date.now()),m3,date});
+ st.set('gas_r',R);cl('sR');render();toast('Lectura guardada');
+}
+
+async function saveSet(){
+ KEY=$('#k_in').value.trim();st.set('gas_k',KEY);
+ const c=$('#c_in').value.trim();
+ if(c&&c!==G.name){
+  busy('Buscando ciudad…');
+  try{
+   const j=await(await fetch('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(c)+'&count=1&language=es')).json();
+   busy('');const r=j.results&&j.results[0];
+   if(!r){toast('No encuentro esa ciudad');return}
+   G={name:r.name+(r.admin1?', '+r.admin1:''),lat:r.latitude,lon:r.longitude};st.set('gas_geo',G);
+  }catch(e){busy('');toast('Sin conexión para buscar la ciudad');return}
+ }
+ cl('sKey');toast('Ajustes guardados');renderTemp();
+}
+async function getTemps(from,to){
+ const key=G.lat+','+G.lon,C=st.get('gas_t',{}),cache=C.k===key?C.v:{};
+ const today=iso(new Date()),end=to>today?today:to,need=[];
+ for(let d=from;d<=end;d=iso(new Date(D(d).getTime()+864e5)))if(cache[d]==null)need.push(d);
+ if(need.length){
+  const lastA=iso(new Date(Date.now()-6*864e5));
+  const q=(base,x)=>fetch(base+'?latitude='+G.lat+'&longitude='+G.lon+'&daily=temperature_2m_mean&timezone=auto'+x).then(r=>r.json());
+  const put=j=>{const t=(j.daily&&j.daily.time)||[],v=(j.daily&&j.daily.temperature_2m_mean)||[];t.forEach((d,i)=>{if(v[i]!=null)cache[d]=v[i]})};
+  const last=need[need.length-1];
+  if(need[0]<=lastA)put(await q('https://archive-api.open-meteo.com/v1/archive','&start_date='+need[0]+'&end_date='+(last<lastA?last:lastA)));
+  if(last>lastA)put(await q('https://api.open-meteo.com/v1/forecast','&past_days=10&forecast_days=1'));
+  st.set('gas_t',{k:key,v:cache});
+ }
+ return cache;
+}
+function chart(pts,reg){
+ const W=320,H=190,l=40,r=12,t=10,b=30;
+ const xs=pts.map(p=>p.t),mn=Math.floor(Math.min(...xs))-1,mx=Math.ceil(Math.max(...xs))+1;
+ const ym=Math.max(...pts.map(p=>p.r))*1.2||1;
+ const X=v=>l+(v-mn)/(mx-mn)*(W-l-r),Y=v=>H-b-v/ym*(H-b-t);
+ let o='<svg class="chart" viewBox="0 0 '+W+' '+H+'">';
+ for(let i=0;i<=3;i++){const v=ym*i/3;o+='<line x1="'+l+'" x2="'+(W-r)+'" y1="'+Y(v)+'" y2="'+Y(v)+'" stroke="var(--ln)"/><text x="'+(l-6)+'" y="'+(Y(v)+4)+'" fill="var(--mu)" font-size="10" text-anchor="end">'+nf(v,1)+'</text>'}
+ o+='<text x="'+l+'" y="'+(H-12)+'" fill="var(--mu)" font-size="10">'+mn+'°</text><text x="'+(W-r)+'" y="'+(H-12)+'" fill="var(--mu)" font-size="10" text-anchor="end">'+mx+'°</text>';
+ o+='<text x="'+((W+l)/2)+'" y="'+(H-1)+'" fill="var(--mu)" font-size="10" text-anchor="middle">Temperatura media (°C) · eje: m³/día</text>';
+ if(reg)o+='<line x1="'+X(mn)+'" y1="'+Y(Math.max(0,reg.a+reg.b*mn))+'" x2="'+X(mx)+'" y2="'+Y(Math.max(0,reg.a+reg.b*mx))+'" stroke="var(--ac2)" stroke-width="2" stroke-dasharray="5 4"/>';
+ pts.forEach(p=>{o+='<circle cx="'+X(p.t)+'" cy="'+Y(p.r)+'" r="5.5" fill="var(--ac)" stroke="var(--card)" stroke-width="2"/>'});
+ return o+'</svg>';
+}
+async function renderTemp(){
+ const el=$('#tmp');if(!el)return;
+ const A=[...R].sort((a,b)=>a.date.localeCompare(b.date));
+ if(A.length<2){el.innerHTML='';return}
+ const hd='<div class="card"><div class="lbl">Temperatura y consumo</div>';
+ if(!G.lat){el.innerHTML=hd+'<p class="sub" style="margin:8px 0 14px">Indica tu ciudad para relacionar el consumo con el frío.</p><button class="btn g" onclick="op(\'sKey\')">Elegir ciudad</button></div>';return}
+ el.innerHTML=hd+'<p class="sub" style="margin-top:8px">Cargando temperaturas…</p></div>';
+ try{
+  const T=await getTemps(A[0].date,A[A.length-1].date),pts=[];
+  for(let i=0;i<A.length-1;i++){
+   const d=diff(A[i].date,A[i+1].date);if(d<=0)continue;
+   let s=0,n=0;
+   for(let k=0;k<d;k++){const dt=iso(new Date(D(A[i].date).getTime()+k*864e5));if(T[dt]!=null){s+=T[dt];n++}}
+   if(n<d*0.6)continue;
+   pts.push({t:s/n,r:(A[i+1].m3-A[i].m3)/d});
+  }
+  if(pts.length<2){el.innerHTML=hd+'<p class="sub" style="margin-top:8px">Aún no hay datos suficientes. Añade más lecturas.</p></div>';return}
+  const n=pts.length,mt=pts.reduce((a,p)=>a+p.t,0)/n,mr=pts.reduce((a,p)=>a+p.r,0)/n;
+  const sxx=pts.reduce((a,p)=>a+(p.t-mt)**2,0),sxy=pts.reduce((a,p)=>a+(p.t-mt)*(p.r-mr),0),syy=pts.reduce((a,p)=>a+(p.r-mr)**2,0);
+  let reg=null,msg;
+  if(n<3)msg='Con '+n+' intervalos aún es pronto para sacar una conclusión. Necesito al menos 3 (4 lecturas).';
+  else if(sxx<4)msg='Las temperaturas han sido muy parecidas en todos los intervalos; aún no se puede medir su efecto.';
+  else{
+   const b=sxy/sxx,a=mr-b*mt,r2=syy?sxy*sxy/(sxx*syy):0;reg={a,b};
+   const f=r2>=.7?'Relación clara':r2>=.4?'Relación moderada':'Relación débil';
+   msg=b<0?'Por cada grado menos, consumes unos <b>'+nf(-b,2)+' m³/día</b> más. '+f+' ('+n+' intervalos).':'No se aprecia que el frío aumente tu consumo (aún). '+f+'.';
+  }
+  el.innerHTML=hd+'<p class="sub" style="margin:6px 0 0;color:var(--tx);font-size:14px;line-height:1.45">'+msg+'</p>'+chart(pts,reg)+'<p class="sub" style="margin-top:8px">'+G.name+' · cada punto es un intervalo entre dos lecturas</p></div>';
+ }catch(e){el.innerHTML=hd+'<p class="sub" style="margin-top:8px">No se pudo cargar la temperatura. Revisa la conexión.</p></div>'}
+}
+function fillP(){['ini','fin','pvar','fijo','alq','imp','iva','factor'].forEach(k=>$('#p_'+k).value=String(P[k]).replace('.',k==='ini'||k==='fin'?'.':','))}
+function saveP(){
+ const n=k=>parseFloat($('#p_'+k).value.replace(',','.'));
+ const o={ini:$('#p_ini').value,fin:$('#p_fin').value};
+ for(const k of['pvar','fijo','alq','imp','iva','factor']){o[k]=n(k);if(!isFinite(o[k])){toast('Revisa el campo '+k);return}}
+ if(!o.ini||!o.fin||o.fin<o.ini){toast('Revisa las fechas');return}
+ P=o;st.set('gas_p',P);render();toast('Datos guardados');
+}
+
+function b64img(file,max=1400){return new Promise((res,rej)=>{const i=new Image();i.onload=()=>{const k=Math.min(1,max/Math.max(i.width,i.height));const c=document.createElement('canvas');c.width=i.width*k;c.height=i.height*k;c.getContext('2d').drawImage(i,0,0,c.width,c.height);res({mime:'image/jpeg',data:c.toDataURL('image/jpeg',.85).split(',')[1]})};i.onerror=rej;i.src=URL.createObjectURL(file)})}
+function b64raw(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res({mime:file.type,data:r.result.split(',')[1]});r.onerror=rej;r.readAsDataURL(file)})}
+async function gemini(prompt,f){
+ if(!KEY)throw new Error('Falta la clave API (engranaje)');
+ const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${KEY}`,{method:'POST',headers:{'Content-Type':'application/json'},
+ body:JSON.stringify({contents:[{parts:[{text:prompt},{inlineData:{mimeType:f.mime,data:f.data}}]}],generationConfig:{responseMimeType:'application/json',temperature:0}})});
+ const j=await r.json();
+ if(!r.ok)throw new Error(j.error?.message||'Error de la API');
+ return JSON.parse(j.candidates[0].content.parts[0].text.replace(/```json|```/g,'').trim());
+}
+
+async function meter(file,cam){
+ if(!file)return;
+ const date=cam?iso(new Date()):iso(file.lastModified||Date.now());
+ busy('Leyendo contador…');
+ try{
+  const f=await b64img(file);
+  const o=await gemini('Esta es la foto de un contador de gas. Devuelve solo JSON: {"lectura_m3": número con decimales (las cifras rojas o tras la coma son decimales) o null si no se lee, "fecha": "YYYY-MM-DD" si aparece una fecha visible, si no null}.',f);
+  busy('');
+  const m=o.lectura_m3!=null?String(o.lectura_m3):'';
+  openR(m,o.fecha||date,m?'Comprueba que el número coincide con el contador.':'No pude leer el número. Introdúcelo a mano.');
+ }catch(e){busy('');toast(e.message);openR('',date,'No se pudo leer la foto. Introdúcelo a mano.')}
+}
+async function bill(file){
+ if(!file)return;
+ busy('Leyendo factura…');
+ try{
+  const f=file.type==='application/pdf'?await b64raw(file):await b64img(file,2000);
+  const o=await gemini('Esta es una factura de gas natural en España. Devuelve solo JSON con estos campos (null si no aparecen): {"periodo_inicio":"YYYY-MM-DD","periodo_fin":"YYYY-MM-DD","precio_variable_eur_kwh":número,"termino_fijo_eur_mes":número,"termino_fijo_eur_dia":número,"alquiler_contador_eur_mes":número,"impuesto_hidrocarburos_eur_kwh":número,"iva_pct":número,"factor_conversion_kwh_m3":número}. Usa precios sin impuestos.',f);
+  const N=Object.assign({},P);
+  if(o.periodo_inicio)N.ini=o.periodo_inicio;if(o.periodo_fin)N.fin=o.periodo_fin;
+  if(o.precio_variable_eur_kwh)N.pvar=o.precio_variable_eur_kwh;
+  if(o.termino_fijo_eur_mes)N.fijo=o.termino_fijo_eur_mes;else if(o.termino_fijo_eur_dia)N.fijo=+(o.termino_fijo_eur_dia*30.4375).toFixed(2);
+  if(o.alquiler_contador_eur_mes!=null)N.alq=o.alquiler_contador_eur_mes;
+  if(o.impuesto_hidrocarburos_eur_kwh)N.imp=o.impuesto_hidrocarburos_eur_kwh;
+  if(o.iva_pct)N.iva=o.iva_pct;
+  if(o.factor_conversion_kwh_m3)N.factor=o.factor_conversion_kwh_m3;
+  P=N;st.set('gas_p',P);fillP();render();busy('');toast('Factura leída. Revisa los datos');
+ }catch(e){busy('');toast(e.message)}
+}
+$('#fCam').onchange=e=>{meter(e.target.files[0],true);e.target.value=''};
+$('#fGal').onchange=e=>{meter(e.target.files[0],false);e.target.value=''};
+$('#fBill').onchange=e=>{bill(e.target.files[0]);e.target.value=''};
+
+render();fillP();
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>
