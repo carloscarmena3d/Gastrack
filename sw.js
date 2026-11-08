@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gastrack-v1';
+const CACHE_NAME = 'gastrack-v2';
 const urlsToCache = [
   './',
   './index.html',
