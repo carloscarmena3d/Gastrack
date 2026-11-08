@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GasTrack</title>
+    <link rel="manifest" href="manifest.json">
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; background: #f0f2f5; color: #1c1e21; }
+        h1, h2, h3 { margin-top: 0; }
+        .tab-content { display: none; padding: 20px; padding-bottom: 80px; }
+        .tab-content.active { display: block; }
+        .nav { position: fixed; bottom: 0; width: 100%; background: white; display: flex; border-top: 1px solid #ddd; }
+        .nav button { flex: 1; padding: 15px; border: none; background: none; font-size: 14px; cursor: pointer; color: #666; }
+        .nav button.active { color: #0056b3; font-weight: bold; border-top: 3px solid #0056b3; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 15px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-size: 14px; font-weight: bold; margin-bottom: 5px; color: #555; }
+        input[type="text"], input[type="number"], input[type="password"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        .btn { width: 100%; padding: 14px; border-radius: 8px; border: none; font-size: 16px; font-weight: bold; cursor: pointer; display: block; text-align: center; margin-bottom: 10px; }
+        .btn-primary { background: #0056b3; color: white; }
+        .btn-secondary { background: #e4e6eb; color: #1c1e21; }
+        .hidden { display: none !important; }
+        .stat-value { font-size: 32px; font-weight: bold; color: #0056b3; margin: 10px 0; }
+        #loader { text-align: center; color: #666; margin: 15px 0; font-style: italic; }
+    </style>
+</head>
+<body>
+
+    <!-- Pestaña: Dashboard -->
+    <div id="tab-dashboard" class="tab-content active">
+        <h2>Resumen Actual</h2>
+        <div class="card">
+            <h3>Gasto Estimado (Mes actual)</h3>
+            <div class="stat-value" id="ui-gasto-total">0.00 €</div>
+            <p style="font-size: 13px; color: #666;">Basado en el consumo desde tu última lectura.</p>
+        </div>
+        <div class="card">
+            <h3>Última lectura</h3>
+            <p><strong>Fecha:</strong> <span id="ui-fecha-lectura">Ninguna</span></p>
+            <p><strong>Valor:</strong> <span id="ui-valor-lectura">0</span> m³</p>
+        </div>
+    </div>
+
+    <!-- Pestaña: Añadir -->
+    <div id="tab-add" class="tab-content">
+        <h2>Registrar Datos</h2>
+        <div class="card">
+            <p>Haz una foto a tu contador de gas para registrar el consumo actual.</p>
+            <label class="btn btn-primary">
+                📷 Fotografiar Contador
+                <!-- capture="environment" abre la cámara trasera directamente en móviles -->
+                <input type="file" id="foto-contador" accept="image/*" capture="environment" class="hidden">
+            </label>
+        </div>
+        
+        <div class="card">
+            <p>Sube tu última factura para extraer tus costes fijos y precio del kWh.</p>
+            <label class="btn btn-secondary">
+                📄 Subir Factura (Foto o PDF)
+                <input type="file" id="foto-factura" accept="image/*,application/pdf" class="hidden">
+            </label>
+        </div>
+        <div id="loader" class="hidden">⏳ Procesando con IA, un momento...</div>
+    </div>
+
+    <!-- Pestaña: Ajustes -->
+    <div id="tab-settings" class="tab-content">
+        <h2>Configuración</h2>
+        <div class="card">
+            <div class="form-group">
+                <label>API Key de Gemini</label>
+                <input type="password" id="api-key" placeholder="Pega aquí tu clave">
+            </div>
+            <button class="btn btn-primary" onclick="guardarAjustes()">Guardar Ajustes</button>
+        </div>
+        <div class="card">
+            <h3>Datos de tu Tarifa</h3>
+            <div class="form-group">
+                <label>Coste Fijo Mensual (€)</label>
+                <input type="number" id="coste-fijo" step="0.01">
+            </div>
+            <div class="form-group">
+                <label>Precio kWh (€)</label>
+                <input type="number" id="precio-kwh" step="0.001">
+            </div>
+            <div class="form-group">
+                <label>Factor de conversión (m³ a kWh)</label>
+                <input type="number" id="factor-conv" step="0.1">
+            </div>
+            <p style="font-size: 12px; color: #888;">* Estos datos se rellenan solos al subir una factura.</p>
+        </div>
+    </div>
+
+    <!-- Navegación Inferior -->
+    <div class="nav">
+        <button onclick="switchTab('dashboard')" id="nav-dashboard" class="active">🏠 Inicio</button>
+        <button onclick="switchTab('add')" id="nav-add">➕ Añadir</button>
+        <button onclick="switchTab('settings')" id="nav-settings">⚙️ Ajustes</button>
+    </div>
+
+    <script>
+        // --- NAVEGACIÓN ---
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav button').forEach(el => el.classList.remove('active'));
+            document.getElementById(`tab-${tab}`).classList.add('active');
+            document.getElementById(`nav-${tab}`).classList.add('active');
+            if (tab === 'dashboard') actualizarDashboard();
+        }
+
+        // --- ALMACENAMIENTO ---
+        const state = JSON.parse(localStorage.getItem('gasState')) || {
+            apiKey: '',
+            costeFijo: 0,
+            precioKwh: 0,
+            factorConv: 11.2,
+            lecturas: []
+        };
+
+        function guardarEstado() {
+            localStorage.setItem('gasState', JSON.stringify(state));
+            cargarAjustes();
+        }
+
+        function cargarAjustes() {
+            document.getElementById('api-key').value = state.apiKey;
+            document.getElementById('coste-fijo').value = state.costeFijo;
+            document.getElementById('precio-kwh').value = state.precioKwh;
+            document.getElementById('factor-conv').value = state.factorConv;
+        }
+
+        function guardarAjustes() {
+            state.apiKey = document.getElementById('api-key').value;
+            state.costeFijo = parseFloat(document.getElementById('coste-fijo').value) || 0;
+            state.precioKwh = parseFloat(document.getElementById('precio-kwh').value) || 0;
+            state.factorConv = parseFloat(document.getElementById('factor-conv').value) || 11.2;
+            guardarEstado();
+            alert('Ajustes guardados');
+        }
+
+        // --- LLAMADA A GEMINI API ---
+        async function llamarGemini(base64Image, mimeType, promptTexto) {
+            if (!state.apiKey) {
+                alert("Primero debes poner tu API Key en la pestaña Ajustes");
+                return null;
+            }
+            
+            document.getElementById('loader').classList.remove('hidden');
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${state.apiKey}`;
+            
+            const payload = {
+                contents: [{
+                    parts: [
+                        { text: promptTexto },
+                        { inlineData: { mimeType: mimeType, data: base64Image } }
+                    ]
+                }]
+            };
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                document.getElementById('loader').classList.add('hidden');
+                
+                if (data.error) throw new Error(data.error.message);
+                return data.candidates[0].content.parts[0].text;
+            } catch (error) {
+                document.getElementById('loader').classList.add('hidden');
+                alert("Error con la IA: " + error.message);
+                return null;
+            }
+        }
+
+        // Utilidad para convertir archivo a Base64 (necesario para Gemini)
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = error => reject(error);
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // --- PROCESAR FOTO CONTADOR ---
+        document.getElementById('foto-contador').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const base64 = await fileToBase64(file);
+            const prompt = "Eres un asistente experto. Extrae ÚNICAMENTE el número principal que marca este contador de gas. Ignora los decimales (suelen estar en rojo o recuadrados distinto). Devuelve SOLO el número entero, sin texto extra.";
+            
+            const resultado = await llamarGemini(base64, file.type, prompt);
+            if (resultado) {
+                const valor = parseFloat(resultado.replace(/[^\d.-]/g, ''));
+                if (!isNaN(valor)) {
+                    state.lecturas.push({
+                        fecha: new Date().toISOString(),
+                        valor: valor
+                    });
+                    guardarEstado();
+                    alert(`Lectura registrada: ${valor} m³`);
+                    switchTab('dashboard');
+                }
+            }
+        });
+
+        // --- PROCESAR FACTURA ---
+        document.getElementById('foto-factura').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const base64 = await fileToBase64(file);
+            const prompt = "Extrae los siguientes datos de esta factura de gas: 1. Coste fijo mensual total (término fijo + alquiler de contador), 2. Precio de la energía (precio por kWh), 3. Factor de conversión (el número por el que se multiplican los m3 para obtener kWh). Devuélvelo en formato JSON estricto con las claves: 'coste_fijo', 'precio_kwh', 'factor_conversion'. Solo JSON, sin bloques de código Markdown.";
+            
+            const resultado = await llamarGemini(base64, file.type, prompt);
+            if (resultado) {
+                try {
+                    // Limpiar posible formato markdown que devuelva la IA
+                    const jsonStr = resultado.replace(/```json/g, '').replace(/```/g, '').trim();
+                    const datos = JSON.parse(jsonStr);
+                    
+                    state.costeFijo = parseFloat(datos.coste_fijo);
+                    state.precioKwh = parseFloat(datos.precio_kwh);
+                    state.factorConv = parseFloat(datos.factor_conversion);
+                    guardarEstado();
+                    alert("¡Datos de tarifa extraídos y guardados en Ajustes con éxito!");
+                    switchTab('settings');
+                } catch (err) {
+                    alert("No se pudo entender la factura. Revisa la imagen o mete los datos a mano en Ajustes.");
+                }
+            }
+        });
+
+        // --- DASHBOARD Y CÁLCULOS ---
+        function actualizarDashboard() {
+            if (state.lecturas.length === 0) return;
+            
+            // Ordenar lecturas por fecha
+            const lecturas = state.lecturas.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+            const ultima = lecturas[lecturas.length - 1];
+            
+            document.getElementById('ui-fecha-lectura').innerText = new Date(ultima.fecha).toLocaleDateString();
+            document.getElementById('ui-valor-lectura').innerText = ultima.valor;
+
+            if (lecturas.length >= 2) {
+                const primera = lecturas[0]; // Para calcular el periodo
+                const m3Consumidos = ultima.valor - primera.valor;
+                const kwhConsumidos = m3Consumidos * state.factorConv;
+                const costeEnergia = kwhConsumidos * state.precioKwh;
+                
+                // Calcular días transcurridos para prorratear el coste fijo
+                const diasTranscurridos = (new Date(ultima.fecha) - new Date(primera.fecha)) / (1000 * 60 * 60 * 24);
+                const costeFijoProporcional = (state.costeFijo / 30) * diasTranscurridos;
+
+                const costeTotal = costeEnergia + costeFijoProporcional;
+                document.getElementById('ui-gasto-total').innerText = costeTotal.toFixed(2) + " €";
+            } else {
+                document.getElementById('ui-gasto-total').innerText = "0.00 € (Faltan lecturas)";
+            }
+        }
+
+        // Iniciar App
+        cargarAjustes();
+        actualizarDashboard();
+        
+        // Registrar Service Worker para PWA
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js');
+        }
+    </script>
+</body>
+</html>
