@@ -6,97 +6,200 @@
     <title>GasTrack</title>
     <link rel="manifest" href="manifest.json">
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; background: #f0f2f5; color: #1c1e21; }
+        /* Ajuste fundamental para que nada se salga de la pantalla */
+        *, *::before, *::after { box-sizing: border-box; }
+        
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            margin: 0; 
+            background: #f4f7f6; /* Fondo gris-verdoso muy claro */
+            color: #1c1e21; 
+        }
         h1, h2, h3 { margin-top: 0; }
-        .tab-content { display: none; padding: 20px; padding-bottom: 80px; }
-        .tab-content.active { display: block; }
-        .nav { position: fixed; bottom: 0; width: 100%; background: white; display: flex; border-top: 1px solid #ddd; }
-        .nav button { flex: 1; padding: 15px; border: none; background: none; font-size: 14px; cursor: pointer; color: #666; }
-        .nav button.active { color: #0056b3; font-weight: bold; border-top: 3px solid #0056b3; }
-        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 15px; }
+        
+        .tab-content { display: none; padding: 20px; padding-bottom: 85px; }
+        .tab-content.active { display: block; animation: fadeIn 0.3s ease; }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Navegación elegante en verde */
+        .nav { 
+            position: fixed; bottom: 0; width: 100%; background: white; 
+            display: flex; border-top: 1px solid #e2e8f0; 
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.03);
+        }
+        .nav button { 
+            flex: 1; padding: 15px 5px; border: none; background: none; 
+            font-size: 14px; cursor: pointer; color: #64748b; 
+            display: flex; flex-direction: column; align-items: center; gap: 4px;
+        }
+        .nav button.active { 
+            color: #059669; /* Verde esmeralda oscuro */
+            font-weight: 600; 
+        }
+        .nav button.active::before {
+            content: ''; position: absolute; top: 0; width: 40px; height: 3px; 
+            background: #059669; border-radius: 0 0 4px 4px;
+        }
+
+        /* Tarjetas (Cards) rediseñadas */
+        .card { 
+            background: white; padding: 22px; border-radius: 16px; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.04); 
+            margin-bottom: 20px; border: 1px solid #f0fdf4;
+        }
+        .section-title {
+            color: #059669; font-size: 18px; font-weight: 600;
+            border-bottom: 2px solid #ecfdf5; padding-bottom: 10px; margin-bottom: 15px;
+            display: flex; align-items: center; gap: 8px;
+        }
+        
         .form-group { margin-bottom: 15px; }
-        label { display: block; font-size: 14px; font-weight: bold; margin-bottom: 5px; color: #555; }
-        input[type="text"], input[type="number"], input[type="password"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
-        .btn { width: 100%; padding: 14px; border-radius: 8px; border: none; font-size: 16px; font-weight: bold; cursor: pointer; display: block; text-align: center; margin-bottom: 10px; }
-        .btn-primary { background: #0056b3; color: white; }
-        .btn-secondary { background: #e4e6eb; color: #1c1e21; }
+        label.input-label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: #475569; }
+        input[type="text"], input[type="number"], input[type="password"] { 
+            width: 100%; padding: 12px; border: 1px solid #cbd5e1; 
+            border-radius: 10px; font-size: 16px; outline: none; transition: border 0.2s;
+        }
+        input:focus { border-color: #059669; box-shadow: 0 0 0 3px #d1fae5; }
+
+        /* Botones ajustados para no sobresalir */
+        .btn { 
+            width: 100%; padding: 14px; border-radius: 10px; border: none; 
+            font-size: 15px; font-weight: 600; cursor: pointer; 
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            margin-bottom: 10px; transition: transform 0.1s, opacity 0.2s;
+        }
+        .btn:active { transform: scale(0.98); }
+        .btn-primary { background: #059669; color: white; box-shadow: 0 4px 10px rgba(5, 150, 105, 0.2); }
+        .btn-secondary { background: #d1fae5; color: #065f46; } /* Verde clarito */
+        .btn-outline { background: white; border: 1px solid #cbd5e1; color: #475569; }
+        
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+        .btn-grid .btn { margin-bottom: 0; padding: 12px 5px; font-size: 14px; }
+
         .hidden { display: none !important; }
-        .stat-value { font-size: 32px; font-weight: bold; color: #0056b3; margin: 10px 0; }
-        #loader { text-align: center; color: #666; margin: 15px 0; font-style: italic; }
+        .stat-value { font-size: 36px; font-weight: 800; color: #059669; margin: 10px 0; letter-spacing: -1px; }
+        .help-text { font-size: 13px; color: #64748b; line-height: 1.4; margin-bottom: 15px; }
+        
+        #loader { 
+            text-align: center; background: #ecfdf5; color: #059669; 
+            padding: 15px; border-radius: 10px; margin-top: 15px; font-weight: 500;
+        }
     </style>
 </head>
 <body>
 
     <!-- Pestaña: Dashboard -->
     <div id="tab-dashboard" class="tab-content active">
-        <h2>Resumen Actual</h2>
+        <h2 style="color: #1e293b; margin-bottom: 20px;">Mi Consumo</h2>
+        
         <div class="card">
-            <h3>Gasto Estimado (Mes actual)</h3>
+            <h3 style="color: #475569; font-size: 15px; font-weight: 500;">Gasto Estimado (Mes actual)</h3>
             <div class="stat-value" id="ui-gasto-total">0.00 €</div>
-            <p style="font-size: 13px; color: #666;">Basado en el consumo desde tu última lectura.</p>
+            <p class="help-text">Coste proyectado basado en tu consumo y cuotas fijas desde la última lectura.</p>
         </div>
+        
         <div class="card">
-            <h3>Última lectura</h3>
-            <p><strong>Fecha:</strong> <span id="ui-fecha-lectura">Ninguna</span></p>
-            <p><strong>Valor:</strong> <span id="ui-valor-lectura">0</span> m³</p>
+            <h3 style="color: #475569; font-size: 15px; font-weight: 500;">Última lectura registrada</h3>
+            <div style="margin-top: 15px; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <div style="font-size: 12px; color: #94a3b8; text-transform: uppercase; font-weight: bold;">Fecha</div>
+                    <div id="ui-fecha-lectura" style="font-size: 16px; font-weight: 500; color: #1e293b;">Ninguna</div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="font-size: 12px; color: #94a3b8; text-transform: uppercase; font-weight: bold;">Valor</div>
+                    <div style="font-size: 16px; font-weight: 600; color: #1e293b;"><span id="ui-valor-lectura">0</span> m³</div>
+                </div>
+            </div>
         </div>
     </div>
 
     <!-- Pestaña: Añadir -->
     <div id="tab-add" class="tab-content">
-        <h2>Registrar Datos</h2>
+        <h2 style="color: #1e293b; margin-bottom: 20px;">Registrar Datos</h2>
+        
+        <!-- SECCIÓN 1: CONTADOR -->
         <div class="card">
-            <p>Haz una foto a tu contador de gas para registrar el consumo actual.</p>
+            <div class="section-title">📟 Datos del Contador</div>
+            <p class="help-text">Registra el consumo actual. Puedes usar la IA con una foto o introducir el número a mano.</p>
+            
+            <!-- Botón principal: Cámara -->
             <label class="btn btn-primary">
-                📷 Fotografiar Contador
-                <!-- capture="environment" abre la cámara trasera directamente en móviles -->
-                <input type="file" id="foto-contador" accept="image/*" capture="environment" class="hidden">
+                📷 Hacer foto al contador
+                <input type="file" id="foto-contador-cam" accept="image/*" capture="environment" class="hidden">
             </label>
+            
+            <!-- Botones secundarios en dos columnas -->
+            <div class="btn-grid">
+                <label class="btn btn-secondary">
+                    🖼️ Subir galería
+                    <input type="file" id="foto-contador-gal" accept="image/*" class="hidden">
+                </label>
+                <button class="btn btn-secondary" onclick="lecturaManual()">
+                    ✍️ Escribir a mano
+                </button>
+            </div>
         </div>
         
+        <!-- SECCIÓN 2: FACTURA -->
         <div class="card">
-            <p>Sube tu última factura para extraer tus costes fijos y precio del kWh.</p>
-            <label class="btn btn-secondary">
-                📄 Subir Factura (Foto o PDF)
+            <div class="section-title">📄 Datos de la Factura</div>
+            <p class="help-text">Sube tu última factura para que la IA extraiga tus costes fijos, el precio de la energía y el factor de conversión automáticamente.</p>
+            
+            <label class="btn btn-outline">
+                📤 Subir Factura (Foto o PDF)
                 <input type="file" id="foto-factura" accept="image/*,application/pdf" class="hidden">
             </label>
         </div>
-        <div id="loader" class="hidden">⏳ Procesando con IA, un momento...</div>
+        
+        <!-- Loader unificado -->
+        <div id="loader" class="hidden">✨ Analizando imagen con Inteligencia Artificial...</div>
     </div>
 
     <!-- Pestaña: Ajustes -->
     <div id="tab-settings" class="tab-content">
-        <h2>Configuración</h2>
+        <h2 style="color: #1e293b; margin-bottom: 20px;">Configuración</h2>
+        
         <div class="card">
+            <div class="section-title">🔑 Conexión IA</div>
             <div class="form-group">
-                <label>API Key de Gemini</label>
-                <input type="password" id="api-key" placeholder="Pega aquí tu clave">
+                <label class="input-label">API Key de Gemini</label>
+                <input type="password" id="api-key" placeholder="Pega aquí tu clave gratuita">
             </div>
-            <button class="btn btn-primary" onclick="guardarAjustes()">Guardar Ajustes</button>
+            <button class="btn btn-primary" onclick="guardarAjustes()">Guardar Clave</button>
         </div>
+        
         <div class="card">
-            <h3>Datos de tu Tarifa</h3>
+            <div class="section-title">💶 Tu Tarifa de Gas</div>
+            <p class="help-text" style="font-size: 12px;">Estos datos se rellenan solos al subir una factura, pero puedes editarlos manualmente.</p>
+            
             <div class="form-group">
-                <label>Coste Fijo Mensual (€)</label>
+                <label class="input-label">Coste Fijo Mensual (€)</label>
                 <input type="number" id="coste-fijo" step="0.01">
             </div>
             <div class="form-group">
-                <label>Precio kWh (€)</label>
-                <input type="number" id="precio-kwh" step="0.001">
+                <label class="input-label">Precio Energía (€/kWh)</label>
+                <input type="number" id="precio-kwh" step="0.0001">
             </div>
             <div class="form-group">
-                <label>Factor de conversión (m³ a kWh)</label>
-                <input type="number" id="factor-conv" step="0.1">
+                <label class="input-label">Factor de conversión (m³ a kWh)</label>
+                <input type="number" id="factor-conv" step="0.01">
             </div>
-            <p style="font-size: 12px; color: #888;">* Estos datos se rellenan solos al subir una factura.</p>
+            <button class="btn btn-secondary" onclick="guardarAjustes()">Actualizar Tarifa</button>
         </div>
     </div>
 
     <!-- Navegación Inferior -->
     <div class="nav">
-        <button onclick="switchTab('dashboard')" id="nav-dashboard" class="active">🏠 Inicio</button>
-        <button onclick="switchTab('add')" id="nav-add">➕ Añadir</button>
-        <button onclick="switchTab('settings')" id="nav-settings">⚙️ Ajustes</button>
+        <button onclick="switchTab('dashboard')" id="nav-dashboard" class="active">
+            <span style="font-size: 20px;">🏠</span> Inicio
+        </button>
+        <button onclick="switchTab('add')" id="nav-add">
+            <span style="font-size: 20px;">➕</span> Añadir
+        </button>
+        <button onclick="switchTab('settings')" id="nav-settings">
+            <span style="font-size: 20px;">⚙️</span> Ajustes
+        </button>
     </div>
 
     <script>
@@ -111,11 +214,7 @@
 
         // --- ALMACENAMIENTO ---
         const state = JSON.parse(localStorage.getItem('gasState')) || {
-            apiKey: '',
-            costeFijo: 0,
-            precioKwh: 0,
-            factorConv: 11.2,
-            lecturas: []
+            apiKey: '', costeFijo: 0, precioKwh: 0, factorConv: 11.2, lecturas: []
         };
 
         function guardarEstado() {
@@ -131,18 +230,19 @@
         }
 
         function guardarAjustes() {
-            state.apiKey = document.getElementById('api-key').value;
+            state.apiKey = document.getElementById('api-key').value.trim();
             state.costeFijo = parseFloat(document.getElementById('coste-fijo').value) || 0;
             state.precioKwh = parseFloat(document.getElementById('precio-kwh').value) || 0;
             state.factorConv = parseFloat(document.getElementById('factor-conv').value) || 11.2;
             guardarEstado();
-            alert('Ajustes guardados');
+            alert('Configuración guardada correctamente.');
         }
 
         // --- LLAMADA A GEMINI API ---
         async function llamarGemini(base64Image, mimeType, promptTexto) {
             if (!state.apiKey) {
-                alert("Primero debes poner tu API Key en la pestaña Ajustes");
+                alert("Primero debes configurar tu API Key en la pestaña Ajustes");
+                switchTab('settings');
                 return null;
             }
             
@@ -150,19 +250,12 @@
             const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${state.apiKey}`;
             
             const payload = {
-                contents: [{
-                    parts: [
-                        { text: promptTexto },
-                        { inlineData: { mimeType: mimeType, data: base64Image } }
-                    ]
-                }]
+                contents: [{ parts: [{ text: promptTexto }, { inlineData: { mimeType: mimeType, data: base64Image } }] }]
             };
 
             try {
                 const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
                 });
                 const data = await response.json();
                 document.getElementById('loader').classList.add('hidden');
@@ -171,12 +264,11 @@
                 return data.candidates[0].content.parts[0].text;
             } catch (error) {
                 document.getElementById('loader').classList.add('hidden');
-                alert("Error con la IA: " + error.message);
+                alert("Error de conexión con la IA: " + error.message);
                 return null;
             }
         }
 
-        // Utilidad para convertir archivo a Base64 (necesario para Gemini)
         function fileToBase64(file) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -186,52 +278,73 @@
             });
         }
 
-        // --- PROCESAR FOTO CONTADOR ---
-        document.getElementById('foto-contador').addEventListener('change', async (e) => {
+        // --- LÓGICA: CONTADOR (IA) ---
+        async function procesarFotoContador(e) {
             const file = e.target.files[0];
             if (!file) return;
+            e.target.value = ''; // Resetear input
 
             const base64 = await fileToBase64(file);
-            const prompt = "Eres un asistente experto. Extrae ÚNICAMENTE el número principal que marca este contador de gas. Ignora los decimales (suelen estar en rojo o recuadrados distinto). Devuelve SOLO el número entero, sin texto extra.";
+            const prompt = "Eres un asistente experto. Extrae ÚNICAMENTE el número principal que marca este contador de gas. Ignora los decimales (suelen estar en rojo o recuadrados distinto). Devuelve SOLO el número entero, sin puntos de miles ni texto extra.";
             
             const resultado = await llamarGemini(base64, file.type, prompt);
             if (resultado) {
-                const valor = parseFloat(resultado.replace(/[^\d.-]/g, ''));
+                const valor = parseFloat(resultado.replace(/[^\d]/g, '')); // Solo extraer dígitos
                 if (!isNaN(valor)) {
-                    state.lecturas.push({
-                        fecha: new Date().toISOString(),
-                        valor: valor
-                    });
-                    guardarEstado();
-                    alert(`Lectura registrada: ${valor} m³`);
-                    switchTab('dashboard');
+                    guardarLectura(valor);
+                } else {
+                    alert("La IA no pudo leer un número claro. Por favor, intenta hacer la foto de nuevo o introdúcelo a mano.");
                 }
             }
-        });
+        }
 
-        // --- PROCESAR FACTURA ---
+        // --- LÓGICA: CONTADOR (MANUAL) ---
+        function lecturaManual() {
+            const valorStr = prompt("Introduce la cifra exacta que marca tu contador en m³ (sin decimales):");
+            if (valorStr !== null && valorStr.trim() !== "") {
+                const valor = parseFloat(valorStr.replace(',', '.'));
+                if (!isNaN(valor)) {
+                    guardarLectura(valor);
+                } else {
+                    alert("Por favor, introduce un número válido.");
+                }
+            }
+        }
+
+        function guardarLectura(valor) {
+            state.lecturas.push({ fecha: new Date().toISOString(), valor: valor });
+            guardarEstado();
+            alert(`Lectura registrada correctamente: ${valor} m³`);
+            switchTab('dashboard');
+        }
+
+        // Asignar eventos a las dos opciones de foto de contador
+        document.getElementById('foto-contador-cam').addEventListener('change', procesarFotoContador);
+        document.getElementById('foto-contador-gal').addEventListener('change', procesarFotoContador);
+
+        // --- LÓGICA: FACTURA ---
         document.getElementById('foto-factura').addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
+            e.target.value = '';
 
             const base64 = await fileToBase64(file);
-            const prompt = "Extrae los siguientes datos de esta factura de gas: 1. Coste fijo mensual total (término fijo + alquiler de contador), 2. Precio de la energía (precio por kWh), 3. Factor de conversión (el número por el que se multiplican los m3 para obtener kWh). Devuélvelo en formato JSON estricto con las claves: 'coste_fijo', 'precio_kwh', 'factor_conversion'. Solo JSON, sin bloques de código Markdown.";
+            const prompt = "Extrae los siguientes datos de esta factura de gas en España: 1. Coste fijo mensual total (término fijo + alquiler de contador), 2. Precio de la energía (precio exacto por kWh), 3. Factor de conversión (el número por el que se multiplican los m3 para obtener kWh, suele rondar los 11). Devuélvelo en formato JSON estricto con las claves: 'coste_fijo', 'precio_kwh', 'factor_conversion'. Solo responde con el bloque JSON.";
             
             const resultado = await llamarGemini(base64, file.type, prompt);
             if (resultado) {
                 try {
-                    // Limpiar posible formato markdown que devuelva la IA
                     const jsonStr = resultado.replace(/```json/g, '').replace(/```/g, '').trim();
                     const datos = JSON.parse(jsonStr);
                     
-                    state.costeFijo = parseFloat(datos.coste_fijo);
-                    state.precioKwh = parseFloat(datos.precio_kwh);
-                    state.factorConv = parseFloat(datos.factor_conversion);
+                    state.costeFijo = parseFloat(datos.coste_fijo) || state.costeFijo;
+                    state.precioKwh = parseFloat(datos.precio_kwh) || state.precioKwh;
+                    state.factorConv = parseFloat(datos.factor_conversion) || state.factorConv;
                     guardarEstado();
-                    alert("¡Datos de tarifa extraídos y guardados en Ajustes con éxito!");
+                    alert("¡Datos de tarifa extraídos y actualizados con éxito!");
                     switchTab('settings');
                 } catch (err) {
-                    alert("No se pudo entender la factura. Revisa la imagen o mete los datos a mano en Ajustes.");
+                    alert("No se pudo interpretar el PDF/Foto. Revisa la calidad de la imagen o introduce los datos a mano en Ajustes.");
                 }
             }
         });
@@ -240,27 +353,27 @@
         function actualizarDashboard() {
             if (state.lecturas.length === 0) return;
             
-            // Ordenar lecturas por fecha
             const lecturas = state.lecturas.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
             const ultima = lecturas[lecturas.length - 1];
             
-            document.getElementById('ui-fecha-lectura').innerText = new Date(ultima.fecha).toLocaleDateString();
+            const fechaStr = new Date(ultima.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+            document.getElementById('ui-fecha-lectura').innerText = fechaStr;
             document.getElementById('ui-valor-lectura').innerText = ultima.valor;
 
             if (lecturas.length >= 2) {
-                const primera = lecturas[0]; // Para calcular el periodo
+                const primera = lecturas[0]; 
                 const m3Consumidos = ultima.valor - primera.valor;
                 const kwhConsumidos = m3Consumidos * state.factorConv;
                 const costeEnergia = kwhConsumidos * state.precioKwh;
                 
-                // Calcular días transcurridos para prorratear el coste fijo
-                const diasTranscurridos = (new Date(ultima.fecha) - new Date(primera.fecha)) / (1000 * 60 * 60 * 24);
+                const diasTranscurridos = Math.max(1, (new Date(ultima.fecha) - new Date(primera.fecha)) / (1000 * 60 * 60 * 24));
                 const costeFijoProporcional = (state.costeFijo / 30) * diasTranscurridos;
 
                 const costeTotal = costeEnergia + costeFijoProporcional;
                 document.getElementById('ui-gasto-total').innerText = costeTotal.toFixed(2) + " €";
             } else {
-                document.getElementById('ui-gasto-total').innerText = "0.00 € (Faltan lecturas)";
+                document.getElementById('ui-gasto-total').innerText = "Falta lectura";
+                document.getElementById('ui-gasto-total').style.fontSize = "24px";
             }
         }
 
@@ -268,9 +381,8 @@
         cargarAjustes();
         actualizarDashboard();
         
-        // Registrar Service Worker para PWA
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js');
+            navigator.serviceWorker.register('sw.js').catch(err => console.log('SW no registrado', err));
         }
     </script>
 </body>
