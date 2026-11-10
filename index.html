@@ -129,7 +129,8 @@ const nf=(n,d=1)=>n.toLocaleString('es-ES',{maximumFractionDigits:d});
 const now=new Date();
 const DEF={ini:iso(new Date(now.getFullYear(),now.getMonth(),1)),fin:iso(new Date(now.getFullYear(),now.getMonth()+1,0)),pvar:0.05,fijo:4.5,alq:1,imp:0.00234,iva:21,factor:11.7};
 let R=st.get('gas_r',[]),P=Object.assign({},DEF,st.get('gas_p',{})),KEY=st.get('gas_k',''),G=st.get('gas_geo',{});
-const MODEL='gemini-2.5-flash';
+const MODELS=['gemini-3.8-flash','gemini-flash-latest'];
+const num=v=>{v=String(v).trim().replace(/\s/g,'');if(v.includes(','))v=v.replace(/\./g,'').replace(',','.');return parseFloat(v)};
 
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2800)}
 function op(id){if(id==='sKey'){$('#k_in').value=KEY;$('#c_in').value=G.name||''}$('#'+id).classList.add('on')}
@@ -187,7 +188,7 @@ function openR(m3,date,note){
  $('#rNote').textContent=note||'Introduce el dato del contador.';op('sR');
 }
 function saveR(){
- const m3=parseFloat($('#r_m3').value.replace(',','.')),date=$('#r_date').value;
+ const m3=num($('#r_m3').value),date=$('#r_date').value;
  if(!isFinite(m3)||!date){toast('Revisa lectura y fecha');return}
  const prev=[...R].filter(r=>r.date<=date).sort((a,b)=>a.date.localeCompare(b.date)).pop();
  if(prev&&m3<prev.m3&&!confirm('Es menor que la lectura anterior ('+nf(prev.m3,3)+'). ¿Guardar igualmente?'))return;
@@ -269,7 +270,7 @@ async function renderTemp(){
 }
 function fillP(){['ini','fin','pvar','fijo','alq','imp','iva','factor'].forEach(k=>$('#p_'+k).value=String(P[k]).replace('.',k==='ini'||k==='fin'?'.':','))}
 function saveP(){
- const n=k=>parseFloat($('#p_'+k).value.replace(',','.'));
+ const n=k=>num($('#p_'+k).value);
  const o={ini:$('#p_ini').value,fin:$('#p_fin').value};
  for(const k of['pvar','fijo','alq','imp','iva','factor']){o[k]=n(k);if(!isFinite(o[k])){toast('Revisa el campo '+k);return}}
  if(!o.ini||!o.fin||o.fin<o.ini){toast('Revisa las fechas');return}
@@ -280,11 +281,16 @@ function b64img(file,max=1400){return new Promise((res,rej)=>{const i=new Image(
 function b64raw(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res({mime:file.type,data:r.result.split(',')[1]});r.onerror=rej;r.readAsDataURL(file)})}
 async function gemini(prompt,f){
  if(!KEY)throw new Error('Falta la clave API (engranaje)');
- const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${KEY}`,{method:'POST',headers:{'Content-Type':'application/json'},
- body:JSON.stringify({contents:[{parts:[{text:prompt},{inlineData:{mimeType:f.mime,data:f.data}}]}],generationConfig:{responseMimeType:'application/json',temperature:0}})});
- const j=await r.json();
- if(!r.ok)throw new Error(j.error?.message||'Error de la API');
- return JSON.parse(j.candidates[0].content.parts[0].text.replace(/```json|```/g,'').trim());
+ let err='Error de la API';
+ for(const m of MODELS){
+  const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+m+':generateContent?key='+KEY,{method:'POST',headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({contents:[{parts:[{text:prompt},{inlineData:{mimeType:f.mime,data:f.data}}]}],generationConfig:{responseMimeType:'application/json',temperature:0}})});
+  const j=await r.json();
+  if(r.ok)return JSON.parse(j.candidates[0].content.parts[0].text.replace(/```json|```/g,'').trim());
+  err=(j.error&&j.error.message)||err;
+  if(r.status!==404&&!/no longer available|not found|not supported/i.test(err))break;
+ }
+ throw new Error(err);
 }
 
 async function meter(file,cam){
@@ -293,9 +299,9 @@ async function meter(file,cam){
  busy('Leyendo contador…');
  try{
   const f=await b64img(file);
-  const o=await gemini('Esta es la foto de un contador de gas. Devuelve solo JSON: {"lectura_m3": número con decimales (las cifras rojas o tras la coma son decimales) o null si no se lee, "fecha": "YYYY-MM-DD" si aparece una fecha visible, si no null}.',f);
+  const o=await gemini('La imagen es un contador de gas con un totalizador de tambores numerados (odómetro) en una ventanilla. Lee SOLO esos tambores: los dígitos de fondo negro son la parte entera en m³ y los dígitos de fondo rojo son los decimales (milésimas). Ignora por completo el número de serie (N°), el modelo, Qmax, Qmin, Pmax, año, códigos de barras y cualquier escritura a mano. Si un tambor está a medio girar, toma el dígito menor que está completo. Devuelve solo JSON: {"cifras_negras":"solo dígitos de fondo negro, de izquierda a derecha","cifras_rojas":"solo dígitos de fondo rojo, de izquierda a derecha","fecha":"YYYY-MM-DD si hay una fecha visible en la imagen, si no null"}.',f);
   busy('');
-  const m=o.lectura_m3!=null?String(o.lectura_m3):'';
+  const ng=String(o.cifras_negras||'').replace(/\D/g,''),rj=String(o.cifras_rojas||'').replace(/\D/g,''),m=ng?ng+(rj?'.'+rj:''):'';
   openR(m,o.fecha||date,m?'Comprueba que el número coincide con el contador.':'No pude leer el número. Introdúcelo a mano.');
  }catch(e){busy('');toast(e.message);openR('',date,'No se pudo leer la foto. Introdúcelo a mano.')}
 }
