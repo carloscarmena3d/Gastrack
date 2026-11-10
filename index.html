@@ -66,7 +66,7 @@ nav button.on{color:var(--ac)}
 </head>
 <body>
 <div id="app">
-<header><h1>Gas <span>Hogar</span></h1>
+<header><h1>Gas <span>Hogar</span> <small id="ver0" style="font-size:11px;font-weight:600;color:var(--mu);-webkit-text-fill-color:var(--mu)"></small></h1>
 <button class="ib" onclick="op('sKey')" aria-label="Ajustes"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg></button></header>
 <main>
 <section class="tab on" id="t0"><div id="t0a"></div><div id="tmp"></div></section>
@@ -112,7 +112,8 @@ nav button.on{color:var(--ac)}
  <h3>Ajustes</h3><p class="sub">Todo se guarda solo en este móvil.</p>
  <label>Ciudad (para la temperatura)</label><input id="c_in" placeholder="Ej. Valencia">
  <label>Clave API de Google AI Studio (Gemini)</label><input id="k_in" type="password" placeholder="AIza...">
- <div class="two" style="margin-top:20px"><button class="btn g" onclick="cl('sKey')">Cerrar</button><button class="btn" onclick="saveSet()">Guardar</button></div>
+ <p class="sub" style="text-align:center;margin-top:16px">Versión <b id="ver"></b></p>
+ <div class="two" style="margin-top:12px"><button class="btn g" onclick="cl('sKey')">Cerrar</button><button class="btn" onclick="saveSet()">Guardar</button></div>
 </div></div>
 
 <div class="load" id="load"><div class="sp"></div><div id="loadT">Leyendo…</div></div>
@@ -129,6 +130,7 @@ const nf=(n,d=1)=>n.toLocaleString('es-ES',{maximumFractionDigits:d});
 const now=new Date();
 const DEF={ini:iso(new Date(now.getFullYear(),now.getMonth(),1)),fin:iso(new Date(now.getFullYear(),now.getMonth()+1,0)),pvar:0.05,fijo:4.5,alq:1,imp:0.00234,iva:21,factor:11.7};
 let R=st.get('gas_r',[]),P=Object.assign({},DEF,st.get('gas_p',{})),KEY=st.get('gas_k',''),G=st.get('gas_geo',{});
+const VER='1.3';
 const MODELS=['gemini-3.8-flash','gemini-flash-latest'];
 const num=v=>{v=String(v).trim().replace(/\s/g,'');if(v.includes(','))v=v.replace(/\./g,'').replace(',','.');return parseFloat(v)};
 
@@ -326,6 +328,7 @@ $('#fCam').onchange=e=>{meter(e.target.files[0],true);e.target.value=''};
 $('#fGal').onchange=e=>{meter(e.target.files[0],false);e.target.value=''};
 $('#fBill').onchange=e=>{bill(e.target.files[0]);e.target.value=''};
 
+$('#ver0').textContent='v'+VER;$('#ver').textContent=VER;
 render();fillP();
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
