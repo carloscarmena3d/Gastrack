@@ -153,7 +153,7 @@ const nf=(n,d=1)=>n.toLocaleString('es-ES',{maximumFractionDigits:d});
 const now=new Date();
 const DEF={ini:'2026-10-03',fin:'2026-12-01',pvar:0.050428,fijo:0.268603,alq:0.019068,imp:0.00234,iva:21,factor:12.2};
 let R=st.get('gas_r',[]),P=Object.assign({},DEF,st.get('gas_p2',{})),KEY=st.get('gas_k',''),G=st.get('gas_geo',{}),H=st.get('gas_h',[]);
-const VER='1.8';
+const VER='1.10';
 let CANCEL=false,CTRL=null;
 const LITE={m:'gemini-flash-lite-latest',t:null},F38={m:'gemini-3.8-flash',t:'low'},FLAT={m:'gemini-flash-latest',t:'low'};
 let LAST={m:'',ms:0};
@@ -316,31 +316,31 @@ async function gemini(prompt,f,kind){
  let list=kind==='meter'&&!pr?[LITE,F38,FLAT]:[F38,FLAT,LITE];
  const i=list.findIndex(x=>x.m===st.get(k,''));
  if(i>0)list=[list[i],...list.filter((_,j)=>j!==i)];
- let err='Error de la API',sat=false;
+ let err='Error de la API',sat=false,why='',quota=false;
  for(const M of list){
   if(CANCEL)throw new Error('Cancelado');
-  if(Date.now()-t0>60000)break;
+  if(Date.now()-t0>(kind==='bill'?150000:60000))break;
   for(const think of(M.t?[M.t,null]:[null])){
    const gc={responseMimeType:'application/json',temperature:0};
    if(think)gc.thinkingConfig={thinkingLevel:think};
-   const ac=new AbortController();CTRL=ac;const to=setTimeout(()=>ac.abort(),25000);
+   const ac=new AbortController();CTRL=ac;const to=setTimeout(()=>ac.abort(),kind==='bill'?70000:25000);
    let r,j;
    try{
     r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+M.m+':generateContent?key='+KEY,{method:'POST',headers:{'Content-Type':'application/json'},signal:ac.signal,
     body:JSON.stringify({contents:[{parts:[{text:prompt},{inlineData:{mimeType:f.mime,data:f.data}}]}],generationConfig:gc})});
     j=await r.json();
-   }catch(e){clearTimeout(to);if(CANCEL)throw new Error('Cancelado');err='Gemini tardó demasiado en responder';sat=true;break}
+   }catch(e){clearTimeout(to);if(CANCEL)throw new Error('Cancelado');err='Gemini tardó demasiado en responder';why='tiempo agotado, '+M.m;sat=true;break}
    clearTimeout(to);
    if(r.ok){st.set(k,M.m);LAST={m:M.m,ms:Date.now()-t0};return JSON.parse(j.candidates[0].content.parts.map(p=>p.text||'').join('').replace(/```json|```/g,'').trim())}
    err=(j.error&&j.error.message)||err;
    if(think&&r.status===400&&/think/i.test(err))continue;
-   if(r.status===429||r.status>=500||/high demand|overloaded|try again/i.test(err)){sat=true;break}
+   if(r.status===429||r.status>=500||/high demand|overloaded|try again/i.test(err)){if(r.status===429)quota=true;why='error '+r.status+', '+M.m;sat=true;break}
    if(r.status===404||/no longer available|not found|not supported/i.test(err))break;
    if(/api key/i.test(err))throw new Error('La clave API no es válida. Revísala en Ajustes');
    throw new Error(err);
   }
  }
- throw new Error(sat?'Gemini no responde ahora mismo. Inténtalo más tarde o mete el dato a mano.':err);
+ throw new Error(quota?'Has llegado al límite de uso gratuito de Gemini ('+why+'). Se renueva con el tiempo: prueba más tarde'+(kind==='meter'?' o mete el dato a mano.':'.'):sat?'Gemini no responde ('+why+'). Inténtalo más tarde'+(kind==='meter'?' o mete el dato a mano.':'.'):err);
 }
 
 const fd=d=>d?d.split('-').reverse().join('/'):'';
