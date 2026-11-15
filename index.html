@@ -120,7 +120,7 @@ nav button.on{color:var(--ac)}
  <div class="two" style="margin-top:12px"><button class="btn g" onclick="cl('sKey')">Cerrar</button><button class="btn" onclick="saveSet()">Guardar</button></div>
 </div></div>
 
-<div class="load" id="load"><div class="sp"></div><div id="loadT">Leyendo…</div></div>
+<div class="load" id="load"><div class="sp"></div><div id="loadT">Leyendo…</div><button class="btn g" style="width:auto;padding:12px 28px;margin-top:8px" onclick="cancelLoad()">Cancelar</button></div>
 <div id="toast"></div>
 
 <script>
@@ -134,13 +134,15 @@ const nf=(n,d=1)=>n.toLocaleString('es-ES',{maximumFractionDigits:d});
 const now=new Date();
 const DEF={ini:'2026-10-03',fin:'2026-12-01',pvar:0.050428,fijo:0.268603,alq:0.019068,imp:0.00234,iva:21,factor:12.2};
 let R=st.get('gas_r',[]),P=Object.assign({},DEF,st.get('gas_p2',{})),KEY=st.get('gas_k',''),G=st.get('gas_geo',{});
-const VER='1.5';
+const VER='1.6';
+let CANCEL=false,CTRL=null;
 const MODELS=['gemini-3.8-flash','gemini-flash-latest','gemini-flash-lite-latest'];
 const num=v=>{v=String(v).trim().replace(/\s/g,'');if(v.includes(','))v=v.replace(/\./g,'').replace(',','.');return parseFloat(v)};
 
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2800)}
 function op(id){if(id==='sKey'){$('#k_in').value=KEY;$('#c_in').value=G.name||''}$('#'+id).classList.add('on')}
 function cl(id){$('#'+id).classList.remove('on')}
+function cancelLoad(){CANCEL=true;try{CTRL&&CTRL.abort()}catch(e){}busy('')}
 function busy(t){$('#loadT').textContent=t||'';$('#load').classList.toggle('on',!!t)}
 
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
@@ -289,24 +291,32 @@ function b64img(file,max=1400){return new Promise((res,rej)=>{const i=new Image(
 function b64raw(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res({mime:file.type,data:r.result.split(',')[1]});r.onerror=rej;r.readAsDataURL(file)})}
 async function gemini(prompt,f){
  if(!KEY)throw new Error('Falta la clave API (engranaje)');
+ CANCEL=false;const t0=Date.now();
  let err='Error de la API',sat=false;
  for(const m of MODELS){
-  for(let t=0;t<2;t++){
+  if(CANCEL)throw new Error('Cancelado');
+  if(Date.now()-t0>60000)break;
+  for(const think of[true,false]){
+   const gc={responseMimeType:'application/json',temperature:0};
+   if(think)gc.thinkingConfig={thinkingLevel:'low'};
+   const ac=new AbortController();CTRL=ac;const to=setTimeout(()=>ac.abort(),25000);
    let r,j;
    try{
-    r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+m+':generateContent?key='+KEY,{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({contents:[{parts:[{text:prompt},{inlineData:{mimeType:f.mime,data:f.data}}]}],generationConfig:{responseMimeType:'application/json',temperature:0}})});
+    r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+m+':generateContent?key='+KEY,{method:'POST',headers:{'Content-Type':'application/json'},signal:ac.signal,
+    body:JSON.stringify({contents:[{parts:[{text:prompt},{inlineData:{mimeType:f.mime,data:f.data}}]}],generationConfig:gc})});
     j=await r.json();
-   }catch(e){throw new Error('Sin conexión a internet')}
-   if(r.ok)return JSON.parse(j.candidates[0].content.parts[0].text.replace(/```json|```/g,'').trim());
+   }catch(e){clearTimeout(to);if(CANCEL)throw new Error('Cancelado');err='Gemini tardó demasiado en responder';sat=true;break}
+   clearTimeout(to);
+   if(r.ok)return JSON.parse(j.candidates[0].content.parts.map(p=>p.text||'').join('').replace(/```json|```/g,'').trim());
    err=(j.error&&j.error.message)||err;
-   if(r.status===429||r.status>=500||/high demand|overloaded|try again/i.test(err)){sat=true;if(t===0)await new Promise(x=>setTimeout(x,1500));continue}
+   if(think&&r.status===400&&/think/i.test(err))continue;
+   if(r.status===429||r.status>=500||/high demand|overloaded|try again/i.test(err)){sat=true;break}
    if(r.status===404||/no longer available|not found|not supported/i.test(err))break;
    if(/api key/i.test(err))throw new Error('La clave API no es válida. Revísala en Ajustes');
    throw new Error(err);
   }
  }
- throw new Error(sat?'Gemini está saturado ahora mismo. Inténtalo en unos minutos o mete el dato a mano.':err);
+ throw new Error(sat?'Gemini no responde ahora mismo. Inténtalo más tarde o mete el dato a mano.':err);
 }
 
 async function meter(file,cam){
@@ -314,7 +324,7 @@ async function meter(file,cam){
  const date=cam?iso(new Date()):iso(file.lastModified||Date.now());
  busy('Leyendo contador…');
  try{
-  const f=await b64img(file);
+  const f=await b64img(file,1100);
   const o=await gemini('La imagen es un contador de gas con un totalizador de tambores numerados (odómetro) en una ventanilla. Lee SOLO esos tambores: los dígitos de fondo negro son la parte entera en m³ y los dígitos de fondo rojo son los decimales (milésimas). Ignora por completo el número de serie (N°), el modelo, Qmax, Qmin, Pmax, año, códigos de barras y cualquier escritura a mano. Si un tambor está a medio girar, toma el dígito menor que está completo. Devuelve solo JSON: {"cifras_negras":"solo dígitos de fondo negro, de izquierda a derecha","cifras_rojas":"solo dígitos de fondo rojo, de izquierda a derecha","fecha":"YYYY-MM-DD si hay una fecha visible en la imagen, si no null"}.',f);
   busy('');
   const ng=String(o.cifras_negras||'').replace(/\D/g,''),rj=String(o.cifras_rojas||'').replace(/\D/g,''),m=ng?ng+(rj?'.'+rj:''):'';
