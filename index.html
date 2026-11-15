@@ -84,7 +84,9 @@ nav button.on{color:var(--ac)}
 </section>
 <section class="tab" id="t2">
  <button class="btn" onclick="$('#fBill').click()"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>Subir factura</button>
- <p class="sub" style="margin:10px 4px 16px;text-align:center">Foto o PDF. La app lee los costes de tu contrato.</p>
+ <p class="sub" style="margin:10px 4px 16px;text-align:center">Foto o PDF. Revisas los datos y los guardas.</p>
+ <h2>Historial de facturas</h2><div class="card" id="hist"></div>
+ <h2>Tarifa y periodo actual</h2>
  <div class="card">
   <div class="two"><div><label>Inicio periodo</label><input type="date" id="p_ini"></div><div><label>Fin periodo</label><input type="date" id="p_fin"></div></div>
   <div class="two"><div><label>Precio variable (€/kWh)</label><input id="p_pvar" inputmode="decimal"></div><div><label>Término fijo (€/día)</label><input id="p_fijo" inputmode="decimal"></div></div>
@@ -116,8 +118,23 @@ nav button.on{color:var(--ac)}
  <h3>Ajustes</h3><p class="sub">Todo se guarda solo en este móvil.</p>
  <label>Ciudad (para la temperatura)</label><input id="c_in" placeholder="Ej. Valencia">
  <label>Clave API de Google AI Studio (Gemini)</label><input id="k_in" type="password" placeholder="AIza...">
+ <label style="display:flex;gap:12px;align-items:center;margin-top:18px;color:var(--tx);font-size:14px"><input type="checkbox" id="pr_in" style="width:22px;height:22px"> Lectura más precisa (más lenta)</label>
  <p class="sub" style="text-align:center;margin-top:16px">Versión <b id="ver"></b></p>
  <div class="two" style="margin-top:12px"><button class="btn g" onclick="cl('sKey')">Cerrar</button><button class="btn" onclick="saveSet()">Guardar</button></div>
+</div></div>
+
+<div class="ov" id="sB" onclick="if(event.target===this)cl('sB')"><div class="sheet">
+ <h3>Factura leída</h3><p class="sub">Revisa los datos y pulsa Guardar.</p>
+ <label>Nº de factura</label><input id="b_num">
+ <div class="two"><div><label>Inicio</label><input type="date" id="b_ini"></div><div><label>Fin</label><input type="date" id="b_fin"></div></div>
+ <div class="two"><div><label>Total a pagar (€)</label><input id="b_total" inputmode="decimal"></div><div><label>Consumo (m³)</label><input id="b_m3" inputmode="decimal"></div></div>
+ <div class="two"><div><label>Consumo (kWh)</label><input id="b_kwh" inputmode="decimal"></div><div><label>Factor (kWh/m³)</label><input id="b_factor" inputmode="decimal"></div></div>
+ <div class="two"><div><label>Precio variable (€/kWh)</label><input id="b_pvar" inputmode="decimal"></div><div><label>Término fijo (€/día)</label><input id="b_fijo" inputmode="decimal"></div></div>
+ <div class="two"><div><label>Alquiler contador (€/día)</label><input id="b_alq" inputmode="decimal"></div><div><label>Imp. hidrocarburos (€/kWh)</label><input id="b_imp" inputmode="decimal"></div></div>
+ <div class="two"><div><label>IVA (%)</label><input id="b_iva" inputmode="decimal"></div><div></div></div>
+ <label>Lectura anterior (fecha y m³)</label><div class="two"><input type="date" id="b_la_f"><input id="b_la_m" inputmode="decimal"></div>
+ <label>Lectura actual (fecha y m³)</label><div class="two"><input type="date" id="b_lc_f"><input id="b_lc_m" inputmode="decimal"></div>
+ <div class="two" style="margin-top:20px"><button class="btn g" onclick="cl('sB')">Descartar</button><button class="btn" onclick="saveB()">Guardar</button></div>
 </div></div>
 
 <div class="load" id="load"><div class="sp"></div><div id="loadT">Leyendo…</div><button class="btn g" style="width:auto;padding:12px 28px;margin-top:8px" onclick="cancelLoad()">Cancelar</button></div>
@@ -133,14 +150,15 @@ const eur=n=>n.toLocaleString('es-ES',{style:'currency',currency:'EUR'});
 const nf=(n,d=1)=>n.toLocaleString('es-ES',{maximumFractionDigits:d});
 const now=new Date();
 const DEF={ini:'2026-10-03',fin:'2026-12-01',pvar:0.050428,fijo:0.268603,alq:0.019068,imp:0.00234,iva:21,factor:12.2};
-let R=st.get('gas_r',[]),P=Object.assign({},DEF,st.get('gas_p2',{})),KEY=st.get('gas_k',''),G=st.get('gas_geo',{});
-const VER='1.6';
+let R=st.get('gas_r',[]),P=Object.assign({},DEF,st.get('gas_p2',{})),KEY=st.get('gas_k',''),G=st.get('gas_geo',{}),H=st.get('gas_h',[]);
+const VER='1.7';
 let CANCEL=false,CTRL=null;
-const MODELS=['gemini-3.8-flash','gemini-flash-latest','gemini-flash-lite-latest'];
+const LITE={m:'gemini-flash-lite-latest',t:null},F38={m:'gemini-3.8-flash',t:'low'},FLAT={m:'gemini-flash-latest',t:'low'};
+let LAST={m:'',ms:0};
 const num=v=>{v=String(v).trim().replace(/\s/g,'');if(v.includes(','))v=v.replace(/\./g,'').replace(',','.');return parseFloat(v)};
 
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2800)}
-function op(id){if(id==='sKey'){$('#k_in').value=KEY;$('#c_in').value=G.name||''}$('#'+id).classList.add('on')}
+function op(id){if(id==='sKey'){$('#pr_in').checked=!!st.get('gas_precise',false);$('#k_in').value=KEY;$('#c_in').value=G.name||''}$('#'+id).classList.add('on')}
 function cl(id){$('#'+id).classList.remove('on')}
 function cancelLoad(){CANCEL=true;try{CTRL&&CTRL.abort()}catch(e){}busy('')}
 function busy(t){$('#loadT').textContent=t||'';$('#load').classList.toggle('on',!!t)}
@@ -148,7 +166,7 @@ function busy(t){$('#loadT').textContent=t||'';$('#load').classList.toggle('on',
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
  document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x===b));
  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('on',i==b.dataset.t));
- if(b.dataset.t==2)fillP();
+ if(b.dataset.t==2){fillP();renderH()}
 });
 
 function period(){
@@ -207,7 +225,7 @@ function saveR(){
 }
 
 async function saveSet(){
- KEY=$('#k_in').value.trim();st.set('gas_k',KEY);
+ KEY=$('#k_in').value.trim();st.set('gas_k',KEY);st.set('gas_precise',$('#pr_in').checked);
  const c=$('#c_in').value.trim();
  if(c&&c!==G.name){
   busy('Buscando ciudad…');
@@ -289,25 +307,29 @@ function saveP(){
 
 function b64img(file,max=1400){return new Promise((res,rej)=>{const i=new Image();i.onload=()=>{const k=Math.min(1,max/Math.max(i.width,i.height));const c=document.createElement('canvas');c.width=i.width*k;c.height=i.height*k;c.getContext('2d').drawImage(i,0,0,c.width,c.height);res({mime:'image/jpeg',data:c.toDataURL('image/jpeg',.85).split(',')[1]})};i.onerror=rej;i.src=URL.createObjectURL(file)})}
 function b64raw(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res({mime:file.type,data:r.result.split(',')[1]});r.onerror=rej;r.readAsDataURL(file)})}
-async function gemini(prompt,f){
+async function gemini(prompt,f,kind){
  if(!KEY)throw new Error('Falta la clave API (engranaje)');
  CANCEL=false;const t0=Date.now();
+ const pr=!!st.get('gas_precise',false),k='gas_pm_'+kind+(pr?'p':'');
+ let list=kind==='meter'&&!pr?[LITE,F38,FLAT]:[F38,FLAT,LITE];
+ const i=list.findIndex(x=>x.m===st.get(k,''));
+ if(i>0)list=[list[i],...list.filter((_,j)=>j!==i)];
  let err='Error de la API',sat=false;
- for(const m of MODELS){
+ for(const M of list){
   if(CANCEL)throw new Error('Cancelado');
   if(Date.now()-t0>60000)break;
-  for(const think of[true,false]){
+  for(const think of(M.t?[M.t,null]:[null])){
    const gc={responseMimeType:'application/json',temperature:0};
-   if(think)gc.thinkingConfig={thinkingLevel:'low'};
+   if(think)gc.thinkingConfig={thinkingLevel:think};
    const ac=new AbortController();CTRL=ac;const to=setTimeout(()=>ac.abort(),25000);
    let r,j;
    try{
-    r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+m+':generateContent?key='+KEY,{method:'POST',headers:{'Content-Type':'application/json'},signal:ac.signal,
+    r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+M.m+':generateContent?key='+KEY,{method:'POST',headers:{'Content-Type':'application/json'},signal:ac.signal,
     body:JSON.stringify({contents:[{parts:[{text:prompt},{inlineData:{mimeType:f.mime,data:f.data}}]}],generationConfig:gc})});
     j=await r.json();
    }catch(e){clearTimeout(to);if(CANCEL)throw new Error('Cancelado');err='Gemini tardó demasiado en responder';sat=true;break}
    clearTimeout(to);
-   if(r.ok)return JSON.parse(j.candidates[0].content.parts.map(p=>p.text||'').join('').replace(/```json|```/g,'').trim());
+   if(r.ok){st.set(k,M.m);LAST={m:M.m,ms:Date.now()-t0};return JSON.parse(j.candidates[0].content.parts.map(p=>p.text||'').join('').replace(/```json|```/g,'').trim())}
    err=(j.error&&j.error.message)||err;
    if(think&&r.status===400&&/think/i.test(err))continue;
    if(r.status===429||r.status>=500||/high demand|overloaded|try again/i.test(err)){sat=true;break}
@@ -319,42 +341,72 @@ async function gemini(prompt,f){
  throw new Error(sat?'Gemini no responde ahora mismo. Inténtalo más tarde o mete el dato a mano.':err);
 }
 
+const fd=d=>d?d.split('-').reverse().join('/'):'';
+const toN=v=>{if(typeof v==='number')return v;if(v==null||v==='')return NaN;let t=(String(v).match(/-?[\d.,]+/)||[''])[0];if(t.includes(','))t=t.replace(/\./g,'').replace(',','.');return parseFloat(t)};
+const toK=v=>{if(typeof v==='number')return v;if(v==null||v==='')return NaN;let t=(String(v).match(/-?[\d.,]+/)||[''])[0];if(t.includes(','))t=t.replace(/\./g,'').replace(',','.');else if(/^\d{1,3}(\.\d{3})+$/.test(t))t=t.replace(/\./g,'');return parseFloat(t)};
+const nd=v=>{if(!v)return'';const t=String(v).trim();let m=t.match(/^(\d{4})-(\d{2})-(\d{2})/);if(m)return m[1]+'-'+m[2]+'-'+m[3];m=t.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})/);if(m){const y=m[3].length==2?'20'+m[3]:m[3];return y+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0')}return''};
+const fv=x=>(x==null||!isFinite(x))?'':String(x).replace('.',',');
+
 async function meter(file,cam){
  if(!file)return;
  const date=cam?iso(new Date()):iso(file.lastModified||Date.now());
  busy('Leyendo contador…');
  try{
-  const f=await b64img(file,1100);
-  const o=await gemini('La imagen es un contador de gas con un totalizador de tambores numerados (odómetro) en una ventanilla. Lee SOLO esos tambores: los dígitos de fondo negro son la parte entera en m³ y los dígitos de fondo rojo son los decimales (milésimas). Ignora por completo el número de serie (N°), el modelo, Qmax, Qmin, Pmax, año, códigos de barras y cualquier escritura a mano. Si un tambor está a medio girar, toma el dígito menor que está completo. Devuelve solo JSON: {"cifras_negras":"solo dígitos de fondo negro, de izquierda a derecha","cifras_rojas":"solo dígitos de fondo rojo, de izquierda a derecha","fecha":"YYYY-MM-DD si hay una fecha visible en la imagen, si no null"}.',f);
+  const f=await b64img(file,900);
+  const o=await gemini('Contador de gas. Lee SOLO los tambores numerados de la ventanilla: cifras de fondo negro = parte entera (m³), cifras de fondo rojo = decimales. Ignora número de serie, modelo, Qmax, Qmin, Pmax, año y texto manuscrito. Si un tambor está a medio girar, toma el dígito menor. Responde solo JSON: {"cifras_negras":"dígitos","cifras_rojas":"dígitos"}',f,'meter');
   busy('');
   const ng=String(o.cifras_negras||'').replace(/\D/g,''),rj=String(o.cifras_rojas||'').replace(/\D/g,''),m=ng?ng+(rj?'.'+rj:''):'';
-  openR(m,o.fecha||date,m?'Comprueba que el número coincide con el contador.':'No pude leer el número. Introdúcelo a mano.');
+  openR(m,date,m?'Comprueba que coincide con el contador · '+(LAST.ms/1000).toFixed(1)+' s':'No pude leer el número. Introdúcelo a mano.');
  }catch(e){busy('');toast(e.message);openR('',date,'No se pudo leer la foto. Introdúcelo a mano.')}
+}
+
+function renderH(){
+ const A=[...H].sort((a,b)=>b.fin.localeCompare(a.fin));
+ $('#hist').innerHTML=A.length?A.map(h=>'<div class="row"><div><b>'+eur(h.total)+'</b><small>'+fd(h.ini)+' – '+fd(h.fin)+'</small><small>'+nf(h.m3,1)+' m³ · '+nf(h.kwh,0)+' kWh'+(h.num?' · Nº '+h.num:'')+'</small></div><button class="x" onclick="delH(\''+h.id+'\')">✕</button></div>').join(''):'<div class="empty">Aún no has guardado ninguna factura.<br>Sube una y pulsa Guardar.</div>';
+}
+function delH(id){if(confirm('¿Borrar esta factura del historial?')){H=H.filter(h=>h.id!==id);st.set('gas_h',H);renderH()}}
+
+function openB(o){
+ const g=(k,d)=>{const v=toN(o[k]);return isFinite(v)&&v>0?v:d};
+ const lec=l=>{l=l||{};let v=toK(l.m3);if(isFinite(v)&&v>0&&v<1000&&Math.round(v*1000)>=1000&&Math.abs(v*1000-Math.round(v*1000))<1e-6)v=Math.round(v*1000);return{f:nd(l.fecha),m:v}};
+ const la=lec(o.lectura_anterior),lc=lec(o.lectura_actual),set=(id,v)=>{$('#b_'+id).value=v==null?'':v};
+ set('num',o.numero_factura||'');set('ini',nd(o.periodo_inicio));set('fin',nd(o.periodo_fin));
+ set('total',fv(toN(o.total_pagar_eur)));set('m3',fv(toK(o.consumo_m3)));set('kwh',fv(toK(o.consumo_kwh)));
+ set('factor',fv(g('factor_conversion_kwh_m3',P.factor)));set('pvar',fv(g('precio_variable_eur_kwh',P.pvar)));
+ set('fijo',fv(g('termino_fijo_eur_dia',P.fijo)));set('alq',fv(g('alquiler_contador_eur_dia',P.alq)));
+ set('imp',fv(g('impuesto_hidrocarburos_eur_kwh',P.imp)));set('iva',fv(g('iva_pct',P.iva)));
+ set('la_f',la.f);set('la_m',fv(la.m));set('lc_f',lc.f);set('lc_m',fv(lc.m));
+ op('sB');
+}
+function saveB(){
+ const v=id=>num($('#b_'+id).value),t=id=>$('#b_'+id).value;
+ const ini=t('ini'),fin=t('fin'),total=v('total');
+ if(!ini||!fin||fin<ini||!isFinite(total)){toast('Revisa el periodo y el total');return}
+ const inv={id:String(Date.now()),num:t('num').trim(),ini,fin,total,m3:v('m3'),kwh:v('kwh'),pvar:v('pvar'),fijo:v('fijo'),alq:v('alq'),imp:v('imp'),iva:v('iva'),factor:v('factor')};
+ if(!isFinite(inv.m3))inv.m3=0;
+ if(!isFinite(inv.kwh))inv.kwh=inv.m3*(isFinite(inv.factor)?inv.factor:P.factor);
+ H=H.filter(h=>!(h.ini===ini&&h.fin===fin));H.push(inv);st.set('gas_h',H);
+ const ok=['pvar','fijo','alq','imp','iva'].every(k=>isFinite(inv[k])&&inv[k]>=0)&&isFinite(inv.factor)&&inv.factor>0;
+ if(ok&&H.every(h=>h.fin<=fin)){
+  const len=diff(ini,fin)+1,ns=iso(new Date(D(fin).getTime()+864e5));
+  P=Object.assign({},P,{pvar:inv.pvar,fijo:inv.fijo,alq:inv.alq,imp:inv.imp,iva:inv.iva,factor:inv.factor,ini:ns,fin:iso(new Date(D(ns).getTime()+(len-1)*864e5))});
+  st.set('gas_p2',P);
+ }
+ let add=0;
+ [[t('la_f'),v('la_m')],[t('lc_f'),v('lc_m')]].forEach(([d,m])=>{
+  if(d&&isFinite(m)&&m>0&&!R.some(r=>r.date===d)){R.push({id:Date.now()+'_'+d,m3:m,date:d});add++}
+ });
+ if(add)st.set('gas_r',R);
+ cl('sB');fillP();renderH();render();
+ toast('Factura guardada'+(add?' · '+add+' lecturas añadidas':''));
 }
 async function bill(file){
  if(!file)return;
  busy('Leyendo factura…');
  try{
-  const f=file.type==='application/pdf'?await b64raw(file):await b64img(file,2000);
-  const o=await gemini('Esta es una factura de gas natural en España. Extrae los datos y devuelve solo JSON con estos campos (null si no aparecen). Todos los números como número JSON, sin separador de miles y con punto decimal (la lectura "13.022 m3" es 13022). Si un concepto aparece en varios tramos de fechas con precios distintos, usa el precio del ÚLTIMO tramo (el más reciente). Importes sin IVA. {"periodo_inicio":"YYYY-MM-DD","periodo_fin":"YYYY-MM-DD","termino_fijo_eur_dia":número,"precio_variable_eur_kwh":número (precio del consumo de gas, no incluye impuestos),"impuesto_hidrocarburos_eur_kwh":número,"alquiler_contador_eur_dia":número,"iva_pct":número,"factor_conversion_kwh_m3":número (kWh por m³),"lectura_anterior":{"fecha":"YYYY-MM-DD","m3":número},"lectura_actual":{"fecha":"YYYY-MM-DD","m3":número}}',f);
-  const N=Object.assign({},P),pos=v=>typeof v==='number'&&isFinite(v)&&v>0;
-  if(pos(o.precio_variable_eur_kwh))N.pvar=o.precio_variable_eur_kwh;
-  if(pos(o.termino_fijo_eur_dia))N.fijo=o.termino_fijo_eur_dia;
-  if(pos(o.alquiler_contador_eur_dia))N.alq=o.alquiler_contador_eur_dia;
-  if(pos(o.impuesto_hidrocarburos_eur_kwh))N.imp=o.impuesto_hidrocarburos_eur_kwh;
-  if(pos(o.iva_pct))N.iva=o.iva_pct;
-  if(pos(o.factor_conversion_kwh_m3))N.factor=o.factor_conversion_kwh_m3;
-  if(o.periodo_inicio&&o.periodo_fin&&o.periodo_fin>=o.periodo_inicio){
-   const len=diff(o.periodo_inicio,o.periodo_fin)+1,ns=iso(new Date(D(o.periodo_fin).getTime()+864e5));
-   N.ini=ns;N.fin=iso(new Date(D(ns).getTime()+(len-1)*864e5));
-  }
-  let add=0;
-  [o.lectura_anterior,o.lectura_actual].forEach(l=>{
-   if(l&&l.fecha&&pos(l.m3)&&!R.some(r=>r.date===l.fecha)){R.push({id:Date.now()+'_'+add,m3:l.m3,date:l.fecha});add++}
-  });
-  if(add)st.set('gas_r',R);
-  P=N;st.set('gas_p2',P);fillP();render();busy('');
-  toast('Factura leída'+(add?' · '+add+' lecturas añadidas':'')+'. Revisa los datos');
+  const f=file.type==='application/pdf'?await b64raw(file):await b64img(file,1600);
+  const o=await gemini('Esta es una factura de gas natural en España. Extrae los datos y devuelve solo JSON (null si no aparece). Los números van como número JSON, con punto decimal y SIN separador de miles. Las lecturas en m3 son enteros: "13.022 m3" es 13022. total_pagar_eur es el importe final con IVA. Si un concepto tiene varios tramos con precios distintos, usa el precio del ÚLTIMO tramo. Precios sin impuestos. {"numero_factura":"texto","periodo_inicio":"YYYY-MM-DD","periodo_fin":"YYYY-MM-DD","total_pagar_eur":número,"consumo_m3":número,"consumo_kwh":número,"termino_fijo_eur_dia":número,"precio_variable_eur_kwh":número,"impuesto_hidrocarburos_eur_kwh":número,"alquiler_contador_eur_dia":número,"iva_pct":número,"factor_conversion_kwh_m3":número,"lectura_anterior":{"fecha":"YYYY-MM-DD","m3":número},"lectura_actual":{"fecha":"YYYY-MM-DD","m3":número}}',f,'bill');
+  busy('');openB(o);
  }catch(e){busy('');toast(e.message)}
 }
 $('#fCam').onchange=e=>{meter(e.target.files[0],true);e.target.value=''};
@@ -362,7 +414,7 @@ $('#fGal').onchange=e=>{meter(e.target.files[0],false);e.target.value=''};
 $('#fBill').onchange=e=>{bill(e.target.files[0]);e.target.value=''};
 
 $('#ver0').textContent='v'+VER;$('#ver').textContent=VER;
-render();fillP();
+render();fillP();renderH();
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
 </body>
