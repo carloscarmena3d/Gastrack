@@ -51,6 +51,7 @@ main{flex:1;overflow-y:auto;padding:8px 16px 20px}
 .trl{font-size:13px;font-weight:700;margin-top:18px}
 .chk{margin-top:18px;padding:12px 14px;border-radius:14px;background:var(--card2);font-size:14px;line-height:1.5;border-left:4px solid var(--mu)}
 .chk.ok{border-left-color:var(--ok)}.chk.warn{border-left-color:var(--ac)}
+.tb .gh{font-weight:700;color:var(--ac);font-size:12px;text-transform:uppercase;letter-spacing:.6px;margin-top:8px}
 .empty{text-align:center;color:var(--mu);padding:24px 10px;font-size:14px;line-height:1.5}
 h2{font-size:17px;margin:4px 2px 12px}
 label{display:block;font-size:12px;color:var(--mu);margin:12px 0 5px;font-weight:600}
@@ -139,6 +140,11 @@ nav button.on{color:var(--ac)}
  <div class="two" style="margin-top:20px"><button class="btn g" onclick="cl('sB')">Descartar</button><button class="btn" onclick="saveB()">Guardar</button></div>
 </div></div>
 
+<div class="ov" id="sD" onclick="if(event.target===this)cl('sD')"><div class="sheet">
+ <h3>Desglose de la factura</h3><p class="sub" id="d_sub"></p><div class="tb" id="d_tb"></div>
+ <button class="btn g" style="margin-top:22px" onclick="cl('sD')">Cerrar</button>
+</div></div>
+
 <div class="load" id="load"><div class="sp"></div><div id="loadT">Leyendo…</div><button class="btn g" style="width:auto;padding:12px 28px;margin-top:8px" onclick="cancelLoad()">Cancelar</button></div>
 <div id="toast"></div>
 
@@ -153,7 +159,7 @@ const nf=(n,d=1)=>n.toLocaleString('es-ES',{maximumFractionDigits:d});
 const now=new Date();
 const DEF={ini:'2026-10-03',fin:'2026-12-01',pvar:0.050428,fijo:0.268603,alq:0.019068,imp:0.00234,iva:21,factor:12.2};
 let R=st.get('gas_r',[]),P=Object.assign({},DEF,st.get('gas_p2',{})),KEY=st.get('gas_k',''),G=st.get('gas_geo',{}),H=st.get('gas_h',[]);
-const VER='1.11';
+const VER='1.13';
 let CANCEL=false,CTRL=null;
 const LITE={m:'gemini-flash-lite-latest',t:null},F38={m:'gemini-3.8-flash',t:'low'},FLAT={m:'gemini-flash-latest',t:'low'};
 let LAST={m:'',ms:0};
@@ -197,14 +203,13 @@ function calc(){
 function render(){
  const c=calc();if(c)saveEst(c);
  $('#t0a').innerHTML=c?`
- <div class="card hero"><div class="lbl">Factura hasta hoy</div><div class="big">${eur(c.now)}</div>
+ <div class="card hero" onclick="showD()" style="cursor:pointer"><div class="lbl">Factura hasta hoy ›</div><div class="big">${eur(c.now)}</div>
  <div class="bar"><i style="width:${Math.round(c.el/c.total*100)}%"></i></div>
  <div class="sub">Día ${c.el} de ${c.total} · quedan ${c.left} días</div></div>
- <div class="card"><div class="lbl">Estimación a fin de periodo</div><div class="mid">${eur(c.proj)}</div>
- <div class="sub">Si mantienes el ritmo actual</div></div>
- <div class="card"><div class="lbl">Desglose de la factura</div><div class="tb"><span></span><span class="h">Hasta hoy</span><span class="h">Fin periodo</span>${[['Término fijo','f'],['Consumo gas','v'],['Imp. hidrocarburos','i'],['Alquiler contador','a'],['IVA '+P.iva+'%','iva']].map(([n,k])=>`<span>${n}</span><span>${eur(c.pn[k])}</span><span>${eur(c.pp[k])}</span>`).join('')}<span class="t">Total</span><span class="t">${eur(c.pn.tot)}</span><span class="t">${eur(c.pp.tot)}</span></div></div>
+ <div class="card" onclick="showD()" style="cursor:pointer"><div class="lbl">Estimación a fin de periodo ›</div><div class="mid">${eur(c.proj)}</div>
+ <div class="sub">Si mantienes el ritmo actual · toca para ver el desglose</div></div>
  <div class="grid"><div class="st"><div class="lbl">Consumo</div><b>${nf(c.soFar,2)} m³</b><div class="sub">${nf(c.kwh,0)} kWh</div></div>
- <div class="st"><div class="lbl">Ritmo diario</div><b>${nf(c.rate,2)} m³</b><div class="sub">${eur(c.rate*P.factor*(P.pvar+P.imp)*(1+P.iva/100))} / día</div></div></div>
+ <div class="st"><div class="lbl">Ritmo diario</div><b>${nf(c.rate,2)} m³</b><div class="sub">≈ ${eur(c.rate*P.factor*(P.pvar+P.imp)*(1+P.iva/100))} / día de gas<br>IVA incluido</div></div></div>
  <p class="sub" style="text-align:center;margin-top:16px">Periodo previsto de la próxima factura: ${c.per.s.split('-').reverse().join('/')} – ${c.per.e.split('-').reverse().join('/')}</p>`
  :`<div class="card empty">Añade al menos <b>dos lecturas</b> del contador en la pestaña Contador para ver tu consumo y la estimación.<br><br>${R.length?'Llevas 1 lectura.':'Todavía no hay lecturas.'}</div>`;
  const A=[...R].sort((a,b)=>b.date.localeCompare(a.date));
@@ -212,7 +217,7 @@ function render(){
   const pv=A[i+1];let x='';
   if(pv){
    const d=diff(pv.date,r.date),m=r.m3-pv.m3;
-   if(d>0&&m>=0)x='<small style="color:var(--tx)">+'+nf(m,2)+' m³ en '+d+(d==1?' día':' días')+' · '+nf(m*P.factor,0)+' kWh</small><small>'+nf(m/d,2)+' m³/día · ≈ '+eur(parts(m,d).tot)+' (tarifa actual, con IVA)</small>';
+   if(d>0&&m>=0)x='<small style="color:var(--tx)">+'+nf(m,2)+' m³ en '+d+(d==1?' día':' días')+' · '+nf(m*P.factor,0)+' kWh</small><small>'+nf(m/d,2)+' m³/día · ≈ '+eur(m*P.factor*(P.pvar+P.imp)*(1+P.iva/100))+' de gas ('+eur(m*P.factor*(P.pvar+P.imp)*(1+P.iva/100)/d)+'/día, IVA incl.)</small>';
    else if(m<0)x='<small style="color:var(--ac)">⚠ Menor que la lectura anterior</small>';
   }
   return '<div class="row"><div><b>'+nf(r.m3,3)+' m³</b><small>'+r.date.split('-').reverse().join('/')+'</small>'+x+'</div><button class="x" onclick="del(\''+r.id+'\')">✕</button></div>';
@@ -372,6 +377,18 @@ async function meter(file,cam){
 
 const p6=x=>x.toLocaleString('es-ES',{maximumFractionDigits:6});
 const r2=x=>Math.round((x+Number.EPSILON)*100)/100;
+function showD(){
+ const c=calc();if(!c)return;
+ const a=c.pn,b=c.pp,row=(n,k)=>'<span>'+n+'</span><span>'+eur(a[k])+'</span><span>'+eur(b[k])+'</span>';
+ const sum=(n,k1,k2,cls)=>'<span class="'+cls+'">'+n+'</span><span class="'+cls+'">'+eur(a[k1]+a[k2])+'</span><span class="'+cls+'">'+eur(b[k1]+b[k2])+'</span>';
+ $('#d_sub').textContent='Periodo '+fd(c.per.s).slice(0,5)+' – '+fd(c.per.e).slice(0,5)+' · día '+c.el+' de '+c.total;
+ $('#d_tb').innerHTML='<span></span><span class="h">Hasta hoy</span><span class="h">Fin periodo</span>'
+  +'<span class="gh">Gastos fijos</span><span></span><span></span>'+row('Término fijo','f')+row('Alquiler contador','a')
+  +'<span class="gh">Gastos variables</span><span></span><span></span>'+row('Consumo de gas','v')+row('Imp. hidrocarburos','i')
+  +row('IVA '+P.iva+'%','iva')
+  +'<span class="t">Total</span><span class="t">'+eur(a.tot)+'</span><span class="t">'+eur(b.tot)+'</span>';
+ op('sD');
+}
 function saveEst(c){const E=st.get('gas_est',{});E[c.per.s+'|'+c.per.e]=c.proj;const ks=Object.keys(E).sort();while(ks.length>12)delete E[ks.shift()];st.set('gas_est',E)}
 function renderH(){
  const A=[...H].sort((a,b)=>b.fin.localeCompare(a.fin));
