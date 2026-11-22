@@ -84,7 +84,7 @@ nav button.on{color:var(--ac)}
   <button class="act" onclick="$('#fGal').click()"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>Galería</button>
   <button class="act" onclick="openR()"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>A mano</button>
  </div>
- <h2>Lecturas</h2><div class="card" id="list"></div>
+ <h2>Lecturas</h2><p class="sub" style="margin:-6px 2px 10px">Toca una lectura para editar su fecha, hora o valor.</p><div class="card" id="list"></div>
 </section>
 <section class="tab" id="t2">
  <button class="btn" onclick="$('#fBill').click()"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>Subir factura</button>
@@ -114,7 +114,7 @@ nav button.on{color:var(--ac)}
 <div class="ov" id="sR" onclick="if(event.target===this)cl('sR')"><div class="sheet">
  <h3>Lectura del contador</h3><p class="sub" id="rNote">Revisa el dato antes de guardar.</p>
  <label>Lectura (m³)</label><input id="r_m3" inputmode="decimal" placeholder="Ej. 1234.567">
- <label>Fecha</label><input type="date" id="r_date">
+ <div class="two"><div><label>Fecha</label><input type="date" id="r_date"></div><div><label>Hora</label><input type="time" id="r_time"></div></div>
  <div class="two" style="margin-top:20px"><button class="btn g" onclick="cl('sR')">Cancelar</button><button class="btn" onclick="saveR()">Guardar</button></div>
 </div></div>
 
@@ -153,14 +153,16 @@ const $=s=>document.querySelector(s);
 const st={get(k,d){try{const v=JSON.parse(localStorage.getItem(k));return v==null?d:v}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
 const iso=d=>{const o=new Date(d);return o.getFullYear()+'-'+String(o.getMonth()+1).padStart(2,'0')+'-'+String(o.getDate()).padStart(2,'0')};
 const D=s=>new Date(s+'T12:00');
+const RT=r=>new Date(r.date+'T'+(r.t||'12:00')).getTime();
+const hhmm=d=>String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
 const diff=(a,b)=>Math.round((D(b)-D(a))/864e5);
 const eur=n=>n.toLocaleString('es-ES',{style:'currency',currency:'EUR'});
 const nf=(n,d=1)=>n.toLocaleString('es-ES',{maximumFractionDigits:d});
 const now=new Date();
 const DEF={ini:'2026-10-03',fin:'2026-12-01',pvar:0.050428,fijo:0.268603,alq:0.019068,imp:0.00234,iva:21,factor:12.2};
 let R=st.get('gas_r',[]),P=Object.assign({},DEF,st.get('gas_p2',{})),KEY=st.get('gas_k',''),G=st.get('gas_geo',{}),H=st.get('gas_h',[]);
-const VER='1.13';
-let CANCEL=false,CTRL=null;
+const VER='1.14';
+let CANCEL=false,CTRL=null,EDIT_ID=null;
 const LITE={m:'gemini-flash-lite-latest',t:null},F38={m:'gemini-3.8-flash',t:'low'},FLAT={m:'gemini-flash-latest',t:'low'};
 let LAST={m:'',ms:0};
 const num=v=>{v=String(v).trim().replace(/\s/g,'');if(v.includes(','))v=v.replace(/\./g,'').replace(',','.');return parseFloat(v)};
@@ -186,15 +188,15 @@ function parts(m3,days){const kwh=m3*P.factor,f=P.fijo*days,v=kwh*P.pvar,i=kwh*P
 const cost=(m3,days)=>parts(m3,days).tot;
 
 function calc(){
- const A=[...R].sort((a,b)=>a.date.localeCompare(b.date));
+ const A=[...R].sort((a,b)=>RT(a)-RT(b));
  if(A.length<2)return null;
  const per=period(),today=iso(new Date()),last=A[A.length-1];
- const before=A.filter(r=>r.date<=per.s).pop();
- const base=before||A.find(r=>r.date>=per.s)||A[0];
- const days=diff(base.date,last.date);
+ const ps=new Date(per.s+'T00:00').getTime(),before=A.filter(r=>RT(r)<=ps).pop();
+ const base=before||A.find(r=>RT(r)>=ps)||A[0];
+ const days=(RT(last)-RT(base))/864e5;
  if(days<=0||base===last)return null;
  const rate=Math.max(0,(last.m3-base.m3)/days);
- const soFar=base.date<per.s?rate*Math.max(0,diff(per.s,last.date)):last.m3-base.m3;
+ const soFar=RT(base)<ps?rate*Math.max(0,(RT(last)-ps)/864e5):last.m3-base.m3;
  const total=diff(per.s,per.e)+1;
  const el=Math.min(total,Math.max(1,diff(per.s,today)+1));
  return{per,rate,soFar,total,el,now:cost(soFar,el),proj:cost(rate*total,total),kwh:soFar*P.factor,left:Math.max(0,total-el),pn:parts(soFar,el),pp:parts(rate*total,total)};
@@ -212,30 +214,37 @@ function render(){
  <div class="st"><div class="lbl">Ritmo diario</div><b>${nf(c.rate,2)} m³</b><div class="sub">≈ ${eur(c.rate*P.factor*(P.pvar+P.imp)*(1+P.iva/100))} / día de gas<br>IVA incluido</div></div></div>
  <p class="sub" style="text-align:center;margin-top:16px">Periodo previsto de la próxima factura: ${c.per.s.split('-').reverse().join('/')} – ${c.per.e.split('-').reverse().join('/')}</p>`
  :`<div class="card empty">Añade al menos <b>dos lecturas</b> del contador en la pestaña Contador para ver tu consumo y la estimación.<br><br>${R.length?'Llevas 1 lectura.':'Todavía no hay lecturas.'}</div>`;
- const A=[...R].sort((a,b)=>b.date.localeCompare(a.date));
+ const A=[...R].sort((a,b)=>RT(b)-RT(a));
  $('#list').innerHTML=A.length?A.map((r,i)=>{
   const pv=A[i+1];let x='';
   if(pv){
-   const d=diff(pv.date,r.date),m=r.m3-pv.m3;
-   if(d>0&&m>=0)x='<small style="color:var(--tx)">+'+nf(m,2)+' m³ en '+d+(d==1?' día':' días')+' · '+nf(m*P.factor,0)+' kWh</small><small>'+nf(m/d,2)+' m³/día · ≈ '+eur(m*P.factor*(P.pvar+P.imp)*(1+P.iva/100))+' de gas ('+eur(m*P.factor*(P.pvar+P.imp)*(1+P.iva/100)/d)+'/día, IVA incl.)</small>';
+   const d=(RT(r)-RT(pv))/864e5,m=r.m3-pv.m3,g=m*P.factor*(P.pvar+P.imp)*(1+P.iva/100);
+   const lap=d>=1?nf(d,1)+(nf(d,1)==='1'?' día':' días'):Math.max(1,Math.round(d*24))+' h';
+   if(d>0&&m>=0)x='<small style="color:var(--tx)">+'+nf(m,2)+' m³ en '+lap+' · '+nf(m*P.factor,0)+' kWh</small><small>'+nf(m/d,2)+' m³/día · ≈ '+eur(g)+' de gas ('+eur(g/d)+'/día, IVA incl.)</small>';
    else if(m<0)x='<small style="color:var(--ac)">⚠ Menor que la lectura anterior</small>';
   }
-  return '<div class="row"><div><b>'+nf(r.m3,3)+' m³</b><small>'+r.date.split('-').reverse().join('/')+'</small>'+x+'</div><button class="x" onclick="del(\''+r.id+'\')">✕</button></div>';
+  return '<div class="row" onclick="editR(\''+r.id+'\')" style="cursor:pointer"><div><b>'+nf(r.m3,3)+' m³</b><small>'+r.date.split('-').reverse().join('/')+' · '+(r.t||'12:00')+'</small>'+x+'</div><button class="x" onclick="event.stopPropagation();del(\''+r.id+'\')">✕</button></div>';
  }).join(''):'<div class="empty">Sin lecturas todavía</div>';
  renderTemp();
 }
 function del(id){if(confirm('¿Borrar esta lectura?')){R=R.filter(r=>r.id!==id);st.set('gas_r',R);render()}}
 
-function openR(m3,date,note){
- $('#r_m3').value=m3??'';$('#r_date').value=date||iso(new Date());
+function openR(m3,date,note,time){
+ EDIT_ID=null;
+ $('#r_m3').value=m3??'';$('#r_date').value=date||iso(new Date());$('#r_time').value=time||'12:00';
  $('#rNote').textContent=note||'Introduce el dato del contador.';op('sR');
 }
+function editR(id){
+ const r=R.find(x=>x.id===id);if(!r)return;
+ openR(String(r.m3),r.date,'Editando lectura. Cambia lo que necesites.',r.t||'12:00');EDIT_ID=id;
+}
 function saveR(){
- const m3=num($('#r_m3').value),date=$('#r_date').value;
+ const m3=num($('#r_m3').value),date=$('#r_date').value,t=$('#r_time').value||'12:00';
  if(!isFinite(m3)||!date){toast('Revisa lectura y fecha');return}
- const prev=[...R].filter(r=>r.date<=date).sort((a,b)=>a.date.localeCompare(b.date)).pop();
+ const n={id:EDIT_ID||String(Date.now()),m3,date,t},me=RT(n);
+ const prev=R.filter(r=>r.id!==n.id&&RT(r)<me).sort((a,b)=>RT(a)-RT(b)).pop();
  if(prev&&m3<prev.m3&&!confirm('Es menor que la lectura anterior ('+nf(prev.m3,3)+'). ¿Guardar igualmente?'))return;
- R=R.filter(r=>r.date!==date);R.push({id:String(Date.now()),m3,date});
+ R=R.filter(r=>r.id!==n.id&&!(r.date===date&&(r.t||'12:00')===t));R.push(n);EDIT_ID=null;
  st.set('gas_r',R);cl('sR');render();toast('Lectura guardada');
 }
 
@@ -283,7 +292,7 @@ function chart(pts,reg){
 }
 async function renderTemp(){
  const el=$('#tmp');if(!el)return;
- const A=[...R].sort((a,b)=>a.date.localeCompare(b.date));
+ const A=[...R].sort((a,b)=>RT(a)-RT(b));
  if(A.length<2){el.innerHTML='';return}
  const hd='<div class="card"><div class="lbl">Temperatura y consumo</div>';
  if(!G.lat){el.innerHTML=hd+'<p class="sub" style="margin:8px 0 14px">Indica tu ciudad para relacionar el consumo con el frío.</p><button class="btn g" onclick="op(\'sKey\')">Elegir ciudad</button></div>';return}
@@ -291,11 +300,11 @@ async function renderTemp(){
  try{
   const T=await getTemps(A[0].date,A[A.length-1].date),pts=[];
   for(let i=0;i<A.length-1;i++){
-   const d=diff(A[i].date,A[i+1].date);if(d<=0)continue;
-   let s=0,n=0;
-   for(let k=0;k<d;k++){const dt=iso(new Date(D(A[i].date).getTime()+k*864e5));if(T[dt]!=null){s+=T[dt];n++}}
-   if(n<d*0.6)continue;
-   pts.push({t:s/n,r:(A[i+1].m3-A[i].m3)/d});
+   const dt=(RT(A[i+1])-RT(A[i]))/864e5;if(dt<0.5)continue;
+   let s=0,n=0;const nd2=diff(A[i].date,A[i+1].date);
+   for(let k=0;k<=nd2;k++){const dd=iso(new Date(D(A[i].date).getTime()+k*864e5));if(T[dd]!=null){s+=T[dd];n++}}
+   if(n<(nd2+1)*0.6)continue;
+   pts.push({t:s/n,r:(A[i+1].m3-A[i].m3)/dt});
   }
   if(pts.length<2){el.innerHTML=hd+'<p class="sub" style="margin-top:8px">Aún no hay datos suficientes. Añade más lecturas.</p></div>';return}
   const n=pts.length,mt=pts.reduce((a,p)=>a+p.t,0)/n,mr=pts.reduce((a,p)=>a+p.r,0)/n;
@@ -364,15 +373,15 @@ const fv=x=>(x==null||!isFinite(x))?'':String(x).replace('.',',');
 
 async function meter(file,cam){
  if(!file)return;
- const date=cam?iso(new Date()):iso(file.lastModified||Date.now());
+ const date=cam?iso(new Date()):iso(file.lastModified||Date.now()),time=cam?hhmm(new Date()):'12:00';
  busy('Leyendo contador…');
  try{
   const f=await b64img(file,900);
   const o=await gemini('Contador de gas. Lee SOLO los tambores numerados de la ventanilla: cifras de fondo negro = parte entera (m³), cifras de fondo rojo = decimales. Ignora número de serie, modelo, Qmax, Qmin, Pmax, año y texto manuscrito. Si un tambor está a medio girar, toma el dígito menor. Responde solo JSON: {"cifras_negras":"dígitos","cifras_rojas":"dígitos"}',f,'meter');
   busy('');
   const ng=String(o.cifras_negras||'').replace(/\D/g,''),rj=String(o.cifras_rojas||'').replace(/\D/g,''),m=ng?ng+(rj?'.'+rj:''):'';
-  openR(m,date,m?'Comprueba que coincide con el contador · '+(LAST.ms/1000).toFixed(1)+' s':'No pude leer el número. Introdúcelo a mano.');
- }catch(e){busy('');toast(e.message);openR('',date,'No se pudo leer la foto. Introdúcelo a mano.')}
+  openR(m,date,m?'Comprueba que coincide con el contador · '+(LAST.ms/1000).toFixed(1)+' s':'No pude leer el número. Introdúcelo a mano.',time);
+ }catch(e){busy('');toast(e.message);openR('',date,'No se pudo leer la foto. Introdúcelo a mano.',time)}
 }
 
 const p6=x=>x.toLocaleString('es-ES',{maximumFractionDigits:6});
