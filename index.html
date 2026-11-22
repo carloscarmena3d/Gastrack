@@ -153,7 +153,7 @@ const nf=(n,d=1)=>n.toLocaleString('es-ES',{maximumFractionDigits:d});
 const now=new Date();
 const DEF={ini:'2026-10-03',fin:'2026-12-01',pvar:0.050428,fijo:0.268603,alq:0.019068,imp:0.00234,iva:21,factor:12.2};
 let R=st.get('gas_r',[]),P=Object.assign({},DEF,st.get('gas_p2',{})),KEY=st.get('gas_k',''),G=st.get('gas_geo',{}),H=st.get('gas_h',[]);
-const VER='1.10';
+const VER='1.11';
 let CANCEL=false,CTRL=null;
 const LITE={m:'gemini-flash-lite-latest',t:null},F38={m:'gemini-3.8-flash',t:'low'},FLAT={m:'gemini-flash-latest',t:'low'};
 let LAST={m:'',ms:0};
@@ -208,7 +208,15 @@ function render(){
  <p class="sub" style="text-align:center;margin-top:16px">Periodo previsto de la próxima factura: ${c.per.s.split('-').reverse().join('/')} – ${c.per.e.split('-').reverse().join('/')}</p>`
  :`<div class="card empty">Añade al menos <b>dos lecturas</b> del contador en la pestaña Contador para ver tu consumo y la estimación.<br><br>${R.length?'Llevas 1 lectura.':'Todavía no hay lecturas.'}</div>`;
  const A=[...R].sort((a,b)=>b.date.localeCompare(a.date));
- $('#list').innerHTML=A.length?A.map(r=>`<div class="row"><div><b>${nf(r.m3,3)} m³</b><small>${r.date.split('-').reverse().join('/')}</small></div><button class="x" onclick="del('${r.id}')">✕</button></div>`).join(''):'<div class="empty">Sin lecturas todavía</div>';
+ $('#list').innerHTML=A.length?A.map((r,i)=>{
+  const pv=A[i+1];let x='';
+  if(pv){
+   const d=diff(pv.date,r.date),m=r.m3-pv.m3;
+   if(d>0&&m>=0)x='<small style="color:var(--tx)">+'+nf(m,2)+' m³ en '+d+(d==1?' día':' días')+' · '+nf(m*P.factor,0)+' kWh</small><small>'+nf(m/d,2)+' m³/día · ≈ '+eur(parts(m,d).tot)+' (tarifa actual, con IVA)</small>';
+   else if(m<0)x='<small style="color:var(--ac)">⚠ Menor que la lectura anterior</small>';
+  }
+  return '<div class="row"><div><b>'+nf(r.m3,3)+' m³</b><small>'+r.date.split('-').reverse().join('/')+'</small>'+x+'</div><button class="x" onclick="del(\''+r.id+'\')">✕</button></div>';
+ }).join(''):'<div class="empty">Sin lecturas todavía</div>';
  renderTemp();
 }
 function del(id){if(confirm('¿Borrar esta lectura?')){R=R.filter(r=>r.id!==id);st.set('gas_r',R);render()}}
